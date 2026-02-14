@@ -1,0 +1,26 @@
+# Tesla tunnel/DNS local resolver fix (run on Mac mini Terminal)
+
+## 1) Flush macOS DNS caches
+sudo dscacheutil -flushcache
+sudo killall -HUP mDNSResponder
+
+## 2) Verify resolution and HTTPS
+nslookup tesla.splui.com 1.1.1.1
+curl -I https://tesla.splui.com/health
+curl -sS https://tesla.splui.com/health
+
+## 3) If curl still cannot resolve but nslookup works (temporary bypass)
+# Replace IP with one of the A records from nslookup/dig.
+curl -sS --resolve tesla.splui.com:443:104.21.89.114 https://tesla.splui.com/health
+
+## 4) Extra diagnostics if still broken
+python3 - <<'PY'
+import socket
+for host in ['tesla.splui.com','app.splui.com']:
+  try:
+    print(host, socket.gethostbyname_ex(host))
+  except Exception as e:
+    print(host, 'ERROR', e)
+PY
+
+/usr/sbin/scutil --dns | head -n 120

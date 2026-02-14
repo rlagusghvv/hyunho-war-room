@@ -1,0 +1,198 @@
+{
+  "meta": {
+    "lastTouchedVersion": "2026.1.29",
+    "lastTouchedAt": "2026-02-11T15:08:19.888Z"
+  },
+  "wizard": {
+    "lastRunAt": "2026-01-31T14:21:15.160Z",
+    "lastRunVersion": "2026.1.29",
+    "lastRunCommand": "onboard",
+    "lastRunMode": "local"
+  },
+  "auth": {
+    "profiles": {
+      "openai-codex:default": {
+        "provider": "openai-codex",
+        "mode": "oauth"
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "openai-codex/gpt-5.2"
+      },
+      "workspace": "/Users/kimhyunhomacmini/.openclaw/workspace",
+      "memorySearch": {
+        "provider": "local",
+        "fallback": "none"
+      },
+      "compaction": {
+        "mode": "safeguard"
+      },
+      "maxConcurrent": 4,
+      "subagents": {
+        "maxConcurrent": 8
+      }
+    }
+  },
+  "tools": {
+    "web": {
+      "search": {
+        "enabled": false
+      },
+      "fetch": {
+        "enabled": false
+      }
+    },
+    "media": {
+      "image": {
+        "enabled": false
+      },
+      "audio": {
+        "enabled": false
+      },
+      "video": {
+        "enabled": false
+      }
+    },
+    "links": {
+      "enabled": false
+    }
+  },
+  "bindings": [
+    {
+      "agentId": "main",
+      "match": {
+        "channel": "telegram",
+        "accountId": "backend-sam"
+      }
+    },
+    {
+      "agentId": "main",
+      "match": {
+        "channel": "telegram",
+        "accountId": "server-sam"
+      }
+    },
+    {
+      "agentId": "main",
+      "match": {
+        "channel": "telegram",
+        "accountId": "data-sam"
+      }
+    },
+    {
+      "agentId": "main",
+      "match": {
+        "channel": "telegram",
+        "accountId": "ui-sam"
+      }
+    },
+    {
+      "agentId": "main",
+      "match": {
+        "channel": "telegram",
+        "accountId": "youngsam"
+      }
+    },
+    {
+      "agentId": "main",
+      "match": {
+        "channel": "telegram",
+        "accountId": "ops-sam"
+      }
+    }
+  ],
+  "messages": {
+    "ackReactionScope": "group-mentions"
+  },
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+    "bash": true,
+    "config": true,
+    "restart": true
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "dmPolicy": "open",
+      "botToken": "8544921257:AAGuU9VoE-hCWhpDijiHojM-eXa-EIML1KI",
+      "allowFrom": [
+        "8563902066"
+      ],
+      "groupPolicy": "allowlist",
+      "streamMode": "partial",
+      "accounts": {
+        "backend-sam": {
+          "name": "백엔드삼",
+          "enabled": true,
+          "botToken": "8338354923:AAHos87bKfIZwuwjt4Pjwp6ygXo717mqXGA",
+          "groupPolicy": "allowlist",
+          "streamMode": "partial"
+        },
+        "server-sam": {
+          "name": "서버삼",
+          "enabled": true,
+          "botToken": "8379591782:AAEpYgQEpkWDECld8-jF_XahTrFcZJ3A-I4",
+          "groupPolicy": "allowlist",
+          "streamMode": "partial"
+        },
+        "youngsam": {
+          "name": "영삼",
+          "enabled": true,
+          "botToken": "8544921257:AAGuU9VoE-hCWhpDijiHojM-eXa-EIML1KI",
+          "groupPolicy": "allowlist",
+          "streamMode": "partial"
+        },
+        "data-sam": {
+          "name": "데이터삼",
+          "enabled": true,
+          "botToken": "8529711258:AAHucH0bN0cEo-VomCTvjiW-GQPSVRtbwKs",
+          "groupPolicy": "allowlist",
+          "streamMode": "partial"
+        },
+        "ui-sam": {
+          "name": "화면삼",
+          "enabled": true,
+          "botToken": "8338370846:AAHhGzbB9zA8NiurbgfKpAeno5WKDB0Cs7M",
+          "groupPolicy": "allowlist",
+          "streamMode": "partial"
+        },
+        "ops-sam": {
+          "name": "정리삼",
+          "enabled": true,
+          "botToken": "8368679224:AAFOYSe-MXz55Zxt7UMU5yZJAlZT5RfMEn0",
+          "groupPolicy": "allowlist",
+          "streamMode": "partial"
+        }
+      }
+    }
+  },
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "bind": "loopback",
+    "auth": {
+      "mode": "token",
+      "token": "4ba252796c232cb34884f715d2f0d8f0cf70c6997032705a"
+    },
+    "tailscale": {
+      "mode": "off",
+      "resetOnExit": false
+    }
+  },
+  "skills": {
+    "install": {
+      "nodeManager": "npm"
+    }
+  },
+  "plugins": {
+    "entries": {
+      "telegram": {
+        "enabled": true
+      }
+    }
+  }
+}
