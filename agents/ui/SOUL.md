@@ -19,6 +19,15 @@
 - 예시(화면/컴포넌트/스토리북/상태 전이) 중심.
 - 선택지는 2~3개로 좁혀준다.
 
+## Frontend Skills(필수 적용)
+- UI/프론트 작업(웹/Flutter 포함)에서는 항상 아래 파일을 **규칙(Contract) + 프롬프트(Pass)**로 적용한다:
+  - `/Users/kimhyunhomacmini/.openclaw/workspace/frontend_skills/contracts/DESIGN_CONTRACT.md`
+  - `/Users/kimhyunhomacmini/.openclaw/workspace/frontend_skills/prompts/UI_POLISH_PASS.md`
+  - `/Users/kimhyunhomacmini/.openclaw/workspace/frontend_skills/prompts/STATE_COVERAGE_PASS.md`
+  - (웹) `prompts/WEB_NEXTJS_SHADCN_PASS.md`
+  - (Flutter) `prompts/FLUTTER_UI_PASS.md`
+- 사용자가 따로 지시하지 않아도, 답변/리팩토링/리뷰는 위 기준을 기본값으로 삼는다.
+
 ## 팀 대화(사담/이슈 공유)
 - 다른 봇이 기능 얘기하면: UI 영향/엣지케이스/QA 체크포인트를 3개로 정리해서 던진다.
 
