@@ -186,6 +186,15 @@ def main() -> int:
     st = state_load()
     container_id = (st.get("notion", {}) or {}).get("mobile_dashboard_container_id")
 
+    # If state points to an archived/deleted block, ignore it.
+    if container_id:
+        try:
+            r = requests.get(f"https://api.notion.com/v1/blocks/{container_id}", headers=headers(), timeout=30)
+            if r.status_code >= 300 or (r.json() or {}).get("archived"):
+                container_id = None
+        except Exception:
+            container_id = None
+
     if not container_id:
         # scan existing
         for blk in list_children(page_id):
