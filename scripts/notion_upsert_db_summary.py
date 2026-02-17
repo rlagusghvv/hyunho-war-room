@@ -156,11 +156,16 @@ def create_toggle_on_page(page_id: str, title: str) -> str:
 
 
 def find_container_toggle(page_id: str) -> str | None:
-    # Try state first
+    # Try state first (but ignore archived/missing blocks)
     st = load_state()
     cid = st.get("notion", {}).get("dashboard_summary_container_id")
     if cid:
-        return cid
+        try:
+            r = requests.get(f"https://api.notion.com/v1/blocks/{cid}", headers=headers(), timeout=30)
+            if r.status_code < 300 and not (r.json() or {}).get("archived"):
+                return cid
+        except Exception:
+            pass
 
     # Else scan page children for a toggle whose text starts with "자동 요약"
     for blk in list_children(page_id):
