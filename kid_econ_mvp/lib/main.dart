@@ -11,22 +11,22 @@ enum DifficultyLevel { easy, normal, hard }
 
 extension DifficultyLabel on DifficultyLevel {
   String get label => switch (this) {
-        DifficultyLevel.easy => '쉬움',
-        DifficultyLevel.normal => '보통',
-        DifficultyLevel.hard => '어려움',
-      };
+    DifficultyLevel.easy => '쉬움',
+    DifficultyLevel.normal => '보통',
+    DifficultyLevel.hard => '어려움',
+  };
 
   String get questName => switch (this) {
-        DifficultyLevel.easy => '초원 입문 코스',
-        DifficultyLevel.normal => '협곡 전략 코스',
-        DifficultyLevel.hard => '화산 마스터 코스',
-      };
+    DifficultyLevel.easy => '초원 입문 코스',
+    DifficultyLevel.normal => '협곡 전략 코스',
+    DifficultyLevel.hard => '화산 마스터 코스',
+  };
 
   int get hintPenalty => switch (this) {
-        DifficultyLevel.easy => 15,
-        DifficultyLevel.normal => 25,
-        DifficultyLevel.hard => 35,
-      };
+    DifficultyLevel.easy => 15,
+    DifficultyLevel.normal => 25,
+    DifficultyLevel.hard => 35,
+  };
 }
 
 class KidEconMvpApp extends StatelessWidget {
@@ -39,7 +39,10 @@ class KidEconMvpApp extends StatelessWidget {
       title: '뉴스 포트폴리오 탐험대',
       theme: ThemeData(
         useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF6C63FF), brightness: Brightness.light),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF6C63FF),
+          brightness: Brightness.light,
+        ),
         textTheme: const TextTheme(
           titleLarge: TextStyle(fontWeight: FontWeight.w900),
           titleMedium: TextStyle(fontWeight: FontWeight.w800),
@@ -142,14 +145,14 @@ class AppState {
   });
 
   factory AppState.initial() => const AppState(
-        playerName: '탐험대원',
-        cash: 1000,
-        currentScenario: 0,
-        results: [],
-        bestStreak: 0,
-        onboarded: false,
-        selectedDifficulty: DifficultyLevel.easy,
-      );
+    playerName: '탐험대원',
+    cash: 1000,
+    currentScenario: 0,
+    results: [],
+    bestStreak: 0,
+    onboarded: false,
+    selectedDifficulty: DifficultyLevel.easy,
+  );
 
   final String playerName;
   final int cash;
@@ -217,9 +220,12 @@ class AppStateStore {
             returnPercent: int.tryParse(parts[3]) ?? 0,
             quizCorrect: parts[4] == '1',
             hintUsed: legacy ? false : parts[5] == '1',
-            difficulty: legacy ? DifficultyLevel.easy : _difficultyFrom(parts[6]),
+            difficulty: legacy
+                ? DifficultyLevel.easy
+                : _difficultyFrom(parts[6]),
             timestamp: DateTime.fromMillisecondsSinceEpoch(
-              int.tryParse(legacy ? parts[5] : parts[7]) ?? DateTime.now().millisecondsSinceEpoch,
+              int.tryParse(legacy ? parts[5] : parts[7]) ??
+                  DateTime.now().millisecondsSinceEpoch,
             ),
           );
         })
@@ -229,11 +235,14 @@ class AppStateStore {
     return AppState(
       playerName: prefs.getString(_kPlayerName) ?? initial.playerName,
       cash: prefs.getInt(_kCash) ?? initial.cash,
-      currentScenario: prefs.getInt(_kCurrentScenario) ?? initial.currentScenario,
+      currentScenario:
+          prefs.getInt(_kCurrentScenario) ?? initial.currentScenario,
       results: parsed,
       bestStreak: prefs.getInt(_kBestStreak) ?? initial.bestStreak,
       onboarded: prefs.getBool(_kOnboarded) ?? initial.onboarded,
-      selectedDifficulty: _difficultyFrom(prefs.getString(_kDifficulty) ?? 'easy'),
+      selectedDifficulty: _difficultyFrom(
+        prefs.getString(_kDifficulty) ?? 'easy',
+      ),
     );
   }
 
@@ -254,16 +263,18 @@ class AppStateStore {
     await prefs.setString(_kDifficulty, state.selectedDifficulty.name);
 
     final encoded = state.results
-        .map((e) => [
-              e.scenarioId,
-              e.invested,
-              e.profit,
-              e.returnPercent,
-              e.quizCorrect ? 1 : 0,
-              e.hintUsed ? 1 : 0,
-              e.difficulty.name,
-              e.timestamp.millisecondsSinceEpoch,
-            ].join('|'))
+        .map(
+          (e) => [
+            e.scenarioId,
+            e.invested,
+            e.profit,
+            e.returnPercent,
+            e.quizCorrect ? 1 : 0,
+            e.hintUsed ? 1 : 0,
+            e.difficulty.name,
+            e.timestamp.millisecondsSinceEpoch,
+          ].join('|'),
+        )
         .toList();
     await prefs.setStringList(_kResults, encoded);
   }
@@ -312,7 +323,7 @@ class _GameHomePageState extends State<GameHomePage> {
               Navigator.pop(context);
             },
             child: const Text('탐험 시작!'),
-          )
+          ),
         ],
       ),
     );
@@ -402,32 +413,58 @@ class _PlayTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final done = state.currentScenario >= scenarios.length;
 
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          _MascotMapHeader(state: state),
-          const SizedBox(height: 10),
-          _DifficultySelector(current: state.selectedDifficulty, onChanged: onDifficultyChanged),
-          const SizedBox(height: 10),
-          if (done)
-            Card(
-              color: Colors.green.shade50,
-              child: const Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('10개 시나리오 완료! 리포트에서 나의 전략 진화를 확인해보자! 🏆'),
-              ),
-            )
-          else
-            Expanded(
-              child: ScenarioPlayCard(
-                scenario: scenarios[state.currentScenario],
-                cash: state.cash,
-                difficulty: state.selectedDifficulty,
-                onDone: onDone,
-              ),
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFFF5F8FF), Color(0xFFEFF6FF), Color(0xFFFFFFFF)],
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            _MascotMapHeader(state: state),
+            const SizedBox(height: 12),
+            _DifficultySelector(
+              current: state.selectedDifficulty,
+              onChanged: onDifficultyChanged,
             ),
-        ],
+            const SizedBox(height: 12),
+            _AdventureMapCard(state: state),
+            const SizedBox(height: 12),
+            if (done)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24),
+                  color: const Color(0xFFE6FFF4),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x14000000),
+                      blurRadius: 14,
+                      offset: Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: const Text(
+                  '🏆 모든 챕터를 완주했어요! 리포트 탭에서 내 투자 성향의 성장 기록을 확인해보자!',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+              )
+            else
+              Expanded(
+                child: ScenarioPlayCard(
+                  scenario: scenarios[state.currentScenario],
+                  cash: state.cash,
+                  difficulty: state.selectedDifficulty,
+                  onDone: onDone,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -442,25 +479,48 @@ class _MascotMapHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: const LinearGradient(colors: [Color(0xFFE0F7FA), Color(0xFFE8EAF6)]),
+        borderRadius: BorderRadius.circular(24),
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFFF4E5), Color(0xFFE9F7FF)],
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x12000000),
+            blurRadius: 14,
+            offset: Offset(0, 8),
+          ),
+        ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          const Text('🐻 가이드 곰이와 함께하는 경제 모험 지도', style: TextStyle(fontWeight: FontWeight.w900)),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              Chip(label: Text('보유 자산 ${state.cash}코인')),
-              Chip(label: Text('진행 ${state.currentScenario}/10')),
-              Chip(label: Text('퀴즈 ${state.quizCorrectCount}/${state.solvedCount}')),
-              Chip(label: Text('힌트 사용 ${state.hintUsedCount}회')),
-            ],
+          Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: const Center(
+              child: Text('🧸', style: TextStyle(fontSize: 28)),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '가이드 곰이의 경제 탐험 지도',
+                  style: TextStyle(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '챕터 ${state.currentScenario + 1 > 10 ? 10 : state.currentScenario + 1}로 이동 중 · 자산 ${state.cash}코인',
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -476,27 +536,215 @@ class _DifficultySelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(10),
-        child: Row(
-          children: DifficultyLevel.values
-              .map(
-                (d) => Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: ChoiceChip(
-                      label: Text(d.label),
-                      selected: current == d,
-                      onSelected: (_) => onChanged(d),
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x12000000),
+            blurRadius: 12,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        children: DifficultyLevel.values
+            .map(
+              (d) => Expanded(
+                child: GestureDetector(
+                  onTap: () => onChanged(d),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      color: current == d
+                          ? const Color(0xFF6C63FF)
+                          : const Color(0xFFF1F3F8),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          d.label,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: current == d
+                                ? Colors.white
+                                : const Color(0xFF444B6E),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          d.questName.split(' ').first,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: current == d
+                                ? Colors.white70
+                                : Colors.black54,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-              )
-              .toList(),
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+}
+
+class _AdventureMapCard extends StatelessWidget {
+  const _AdventureMapCard({required this.state});
+
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final points = List.generate(scenarios.length, (i) {
+      final x = (i % 5) / 4;
+      final y = i < 5 ? 0.25 : 0.75;
+      return Offset(i < 5 ? x : 1 - x, y);
+    });
+
+    return Container(
+      height: 170,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: const LinearGradient(
+          colors: [Color(0xFFEAF4FF), Color(0xFFF6EDFF)],
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x12000000),
+            blurRadius: 14,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: LayoutBuilder(
+          builder: (context, c) {
+            return Stack(
+              children: [
+                CustomPaint(
+                  size: Size(c.maxWidth, c.maxHeight),
+                  painter: _MapPathPainter(
+                    points: points,
+                    completedCount: state.currentScenario,
+                  ),
+                ),
+                ...List.generate(points.length, (i) {
+                  final p = points[i];
+                  final status = i < state.currentScenario
+                      ? _NodeState.done
+                      : i == state.currentScenario
+                      ? _NodeState.current
+                      : _NodeState.locked;
+                  return Positioned(
+                    left: p.dx * (c.maxWidth - 30),
+                    top: p.dy * (c.maxHeight - 30),
+                    child: _MapNode(index: i + 1, state: status),
+                  );
+                }),
+              ],
+            );
+          },
         ),
       ),
     );
+  }
+}
+
+enum _NodeState { done, current, locked }
+
+class _MapNode extends StatelessWidget {
+  const _MapNode({required this.index, required this.state});
+
+  final int index;
+  final _NodeState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final isCurrent = state == _NodeState.current;
+    final bg = switch (state) {
+      _NodeState.done => const Color(0xFF34C759),
+      _NodeState.current => const Color(0xFF6C63FF),
+      _NodeState.locked => const Color(0xFFCFD5E4),
+    };
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      width: isCurrent ? 34 : 30,
+      height: isCurrent ? 34 : 30,
+      decoration: BoxDecoration(
+        color: bg,
+        shape: BoxShape.circle,
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x26000000),
+            blurRadius: 8,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Center(
+        child: state == _NodeState.done
+            ? const Icon(Icons.check, color: Colors.white, size: 17)
+            : Text(
+                '$index',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+class _MapPathPainter extends CustomPainter {
+  _MapPathPainter({required this.points, required this.completedCount});
+
+  final List<Offset> points;
+  final int completedCount;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final donePaint = Paint()
+      ..color = const Color(0xFF62D48F)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6
+      ..strokeCap = StrokeCap.round;
+    final todoPaint = Paint()
+      ..color = const Color(0x80A8B3C7)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6
+      ..strokeCap = StrokeCap.round;
+
+    for (var i = 0; i < points.length - 1; i++) {
+      final p1 = Offset(
+        points[i].dx * (size.width - 30) + 15,
+        points[i].dy * (size.height - 30) + 15,
+      );
+      final p2 = Offset(
+        points[i + 1].dx * (size.width - 30) + 15,
+        points[i + 1].dy * (size.height - 30) + 15,
+      );
+      canvas.drawLine(p1, p2, i < completedCount ? donePaint : todoPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _MapPathPainter oldDelegate) {
+    return oldDelegate.completedCount != completedCount;
   }
 }
 
@@ -528,6 +776,7 @@ class _ScenarioPlayCardState extends State<ScenarioPlayCard> {
   bool _hintUsed = false;
   int _wrongAttempts = 0;
   String? _resultText;
+  String _mascotSpeech = '뉴스를 읽고 어떤 산업이 먼저 움직일지 찾아보자!';
 
   @override
   void initState() {
@@ -536,22 +785,22 @@ class _ScenarioPlayCardState extends State<ScenarioPlayCard> {
   }
 
   int get _expectedReasoning => switch (widget.difficulty) {
-        DifficultyLevel.easy => 0,
-        DifficultyLevel.normal => 1,
-        DifficultyLevel.hard => 2,
-      };
+    DifficultyLevel.easy => 0,
+    DifficultyLevel.normal => 1,
+    DifficultyLevel.hard => 2,
+  };
 
   List<String> get _reasoningChoices => const [
-        '뉴스와 직접 연결된 산업 먼저 확인',
-        '영향이 몇 주/몇 달 갈지 기간 확인',
-        '수혜+피해를 함께 보고 분산 전략 세우기',
-      ];
+    '뉴스와 직접 연결된 산업 먼저 확인',
+    '영향이 몇 주/몇 달 갈지 기간 확인',
+    '수혜+피해를 함께 보고 분산 전략 세우기',
+  ];
 
   String get _reasoningQuestion => switch (widget.difficulty) {
-        DifficultyLevel.easy => '2) 가장 먼저 볼 근거는?',
-        DifficultyLevel.normal => '2) 보통 난이도: 한 단계 깊게 볼 근거는?',
-        DifficultyLevel.hard => '2) 어려움 난이도: 2차 영향까지 보는 근거는?',
-      };
+    DifficultyLevel.easy => '2) 가장 먼저 볼 근거는?',
+    DifficultyLevel.normal => '2) 보통 난이도: 한 단계 깊게 볼 근거는?',
+    DifficultyLevel.hard => '2) 어려움 난이도: 2차 영향까지 보는 근거는?',
+  };
 
   int _calcReturnPercent(bool coreCorrect) {
     final base = switch (widget.difficulty) {
@@ -560,7 +809,11 @@ class _ScenarioPlayCardState extends State<ScenarioPlayCard> {
       DifficultyLevel.hard => coreCorrect ? 18 : -14,
     };
     final riskBonus = ((_riskRatio - 50) / 10).round();
-    final hardRiskPenalty = widget.difficulty == DifficultyLevel.hard && (_riskRatio < 35 || _riskRatio > 75) ? -4 : 0;
+    final hardRiskPenalty =
+        widget.difficulty == DifficultyLevel.hard &&
+            (_riskRatio < 35 || _riskRatio > 75)
+        ? -4
+        : 0;
     return base + riskBonus + hardRiskPenalty;
   }
 
@@ -572,7 +825,12 @@ class _ScenarioPlayCardState extends State<ScenarioPlayCard> {
     return switch (widget.difficulty) {
       DifficultyLevel.easy => industryOk && quizOk,
       DifficultyLevel.normal => industryOk && quizOk && reasoningOk,
-      DifficultyLevel.hard => industryOk && quizOk && reasoningOk && _riskRatio >= 35 && _riskRatio <= 75,
+      DifficultyLevel.hard =>
+        industryOk &&
+            quizOk &&
+            reasoningOk &&
+            _riskRatio >= 35 &&
+            _riskRatio <= 75,
     };
   }
 
@@ -581,15 +839,44 @@ class _ScenarioPlayCardState extends State<ScenarioPlayCard> {
     required bool selected,
     required VoidCallback? onTap,
   }) {
-    return Card(
-      elevation: 0,
-      color: selected ? const Color(0xFFE8F0FE) : Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: selected ? const Color(0xFF6C63FF) : Colors.black12)),
-      child: ListTile(
-        onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-        leading: Icon(selected ? Icons.check_circle : Icons.circle_outlined, color: selected ? const Color(0xFF6C63FF) : Colors.grey),
-        title: Text(text),
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        margin: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          color: selected ? const Color(0xFFEAE8FF) : Colors.white,
+          border: Border.all(
+            color: selected ? const Color(0xFF6C63FF) : const Color(0xFFDCE0EA),
+            width: 1.2,
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0A000000),
+              blurRadius: 6,
+              offset: Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Icon(
+              selected ? Icons.radio_button_checked : Icons.radio_button_off,
+              color: selected
+                  ? const Color(0xFF6C63FF)
+                  : const Color(0xFF9DA6BC),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                text,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -603,6 +890,7 @@ class _ScenarioPlayCardState extends State<ScenarioPlayCard> {
       setState(() {
         _wrongAttempts = 1;
         _hintUnlocked = true;
+        _mascotSpeech = '좋은 시도야! 힌트를 열었어. 핵심 연결을 다시 찾아보자!';
         _resultText = '아쉽게도 근거가 아직 약해요! 힌트가 열렸어요. 다시 도전해볼까요?';
       });
       return;
@@ -625,6 +913,9 @@ class _ScenarioPlayCardState extends State<ScenarioPlayCard> {
 
     setState(() {
       _submitted = true;
+      _mascotSpeech = coreCorrect
+          ? '완벽해! 뉴스→산업→리스크 연결이 정확했어!'
+          : '끝까지 완료했어! 리포트에서 약한 구간을 점검해보자.';
       _resultText =
           '투자금 $invested코인 · 수익률 $returnPercent%\n손익 ${rawProfit >= 0 ? '+' : ''}$rawProfit코인\n'
           '안정 보너스 +$calmBonus · 퀴즈 +$quizBonus · 힌트 페널티 -$hintPenalty\n'
@@ -651,108 +942,282 @@ class _ScenarioPlayCardState extends State<ScenarioPlayCard> {
 
     return ListView(
       children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('🗺️ ${widget.difficulty.questName} · 시나리오 ${s.id}', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 6),
-                Text(s.title, style: const TextStyle(fontWeight: FontWeight.w800)),
-                const SizedBox(height: 8),
-                Text(s.news),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            color: Colors.white,
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x12000000),
+                blurRadius: 14,
+                offset: Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF3D5),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Center(
+                  child: Text('🧸', style: TextStyle(fontSize: 26)),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF2F7FF),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFD5E6FF)),
+                  ),
+                  child: Text(
+                    _mascotSpeech,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            color: Colors.white,
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x12000000),
+                blurRadius: 14,
+                offset: Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '🗺️ ${widget.difficulty.questName} · 챕터 ${s.id}',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                s.title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 17,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(s.news),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _tag(
+                    '수혜 ${s.goodIndustries.join(', ')}',
+                    const Color(0xFFE6F8EA),
+                    const Color(0xFF1F8D48),
+                  ),
+                  _tag(
+                    '피해 ${s.badIndustries.join(', ')}',
+                    const Color(0xFFFFECEC),
+                    const Color(0xFFB93838),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        _gameSection(
+          title: '1) 어떤 산업 카드에 투자할까?',
+          child: Column(
+            children: List.generate(
+              s.options.length,
+              (i) => _choiceTile(
+                text: s.options[i],
+                selected: _selectedIndustry == i,
+                onTap: _submitted
+                    ? null
+                    : () => setState(() {
+                        _selectedIndustry = i;
+                        _mascotSpeech = '좋아! 이제 선택한 산업의 근거를 설명해볼까?';
+                      }),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        _gameSection(
+          title: _reasoningQuestion,
+          child: Column(
+            children: List.generate(
+              _reasoningChoices.length,
+              (i) => _choiceTile(
+                text: _reasoningChoices[i],
+                selected: _reasoningAnswer == i,
+                onTap: _submitted
+                    ? null
+                    : () => setState(() {
+                        _reasoningAnswer = i;
+                        _mascotSpeech = '근거를 선택했네! 마지막으로 퀴즈를 풀어보자.';
+                      }),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        _gameSection(
+          title: '3) 리스크 게이지 ${_riskRatio.round()}%',
+          child: Column(
+            children: [
+              Slider.adaptive(
+                value: _riskRatio,
+                min: 20,
+                max: 100,
+                divisions: 8,
+                label: '${_riskRatio.round()}%',
+                onChanged: _submitted
+                    ? null
+                    : (v) => setState(() {
+                        _riskRatio = v;
+                        _mascotSpeech = _riskRatio > 75
+                            ? '공격적이야! 변동성도 함께 커질 수 있어.'
+                            : '좋아, 리스크를 조절하는 감각이 중요해!';
+                      }),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  '투자 예정금 ${max(100, (widget.cash * (_riskRatio / 100)).round())}코인',
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        _gameSection(
+          title: '4) 퀴즈: ${s.quizQuestion}',
+          child: Column(
+            children: [
+              ...List.generate(
+                s.quizChoices.length,
+                (i) => _choiceTile(
+                  text: s.quizChoices[i],
+                  selected: _quizAnswer == i,
+                  onTap: _submitted
+                      ? null
+                      : () => setState(() {
+                          _quizAnswer = i;
+                          _mascotSpeech = '좋아! 이제 결과 확인 버튼을 눌러보자!';
+                        }),
+                ),
+              ),
+              const SizedBox(height: 10),
+              if (_hintUnlocked && !_hintUsed)
+                OutlinedButton.icon(
+                  onPressed: () => setState(() {
+                    _hintUsed = true;
+                    _mascotSpeech = '힌트를 사용했어! 점수는 조금 줄지만 학습엔 도움이 돼.';
+                  }),
+                  icon: const Icon(Icons.lightbulb),
+                  label: Text(
+                    '힌트 보기 (1회, -${widget.difficulty.hintPenalty}코인)',
+                  ),
+                ),
+              if (_hintUsed)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '힌트: "${s.goodIndustries.first}" 같은 직접 수혜 산업 + 기간/분산 근거를 함께 생각해보세요!',
+                  ),
+                ),
+              FilledButton.icon(
+                onPressed: _submitted ? null : _submit,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                  backgroundColor: const Color(0xFF6C63FF),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                icon: const Icon(Icons.check_circle),
+                label: Text(_wrongAttempts == 0 ? '정답 확인' : '재도전 확정'),
+              ),
+              if (_resultText != null) ...[
                 const SizedBox(height: 10),
-                Wrap(spacing: 8, runSpacing: 8, children: [
-                  Chip(label: Text('수혜 후보 ${s.goodIndustries.join(', ')}')),
-                  Chip(label: Text('피해 후보 ${s.badIndustries.join(', ')}')),
-                ])
-              ],
-            ),
-          ),
-        ),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('1) 어디에 더 비중을 둘까?'),
-                ...List.generate(
-                  s.options.length,
-                  (i) => _choiceTile(
-                    text: s.options[i],
-                    selected: _selectedIndustry == i,
-                    onTap: _submitted ? null : () => setState(() => _selectedIndustry = i),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    color: const Color(0xFFF5F8FF),
                   ),
-                ),
-                const Divider(),
-                Text(_reasoningQuestion),
-                ...List.generate(
-                  _reasoningChoices.length,
-                  (i) => _choiceTile(
-                    text: _reasoningChoices[i],
-                    selected: _reasoningAnswer == i,
-                    onTap: _submitted ? null : () => setState(() => _reasoningAnswer = i),
+                  child: Text(
+                    _resultText!,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
-                ),
-                const Divider(),
-                Text('3) 투자 비율(리스크): ${_riskRatio.round()}%'),
-                Slider(
-                  value: _riskRatio,
-                  min: 20,
-                  max: 100,
-                  divisions: 8,
-                  label: '${_riskRatio.round()}%',
-                  onChanged: _submitted ? null : (v) => setState(() => _riskRatio = v),
                 ),
               ],
-            ),
-          ),
-        ),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('4) 퀴즈: ${s.quizQuestion}'),
-                ...List.generate(
-                  s.quizChoices.length,
-                  (i) => _choiceTile(
-                    text: s.quizChoices[i],
-                    selected: _quizAnswer == i,
-                    onTap: _submitted ? null : () => setState(() => _quizAnswer = i),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                if (_hintUnlocked && !_hintUsed)
-                  OutlinedButton.icon(
-                    onPressed: () => setState(() => _hintUsed = true),
-                    icon: const Icon(Icons.lightbulb),
-                    label: Text('힌트 보기 (1회, -${widget.difficulty.hintPenalty}코인)'),
-                  ),
-                if (_hintUsed)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(color: Colors.amber.shade100, borderRadius: BorderRadius.circular(12)),
-                    child: Text('힌트: "${s.goodIndustries.first}" 같은 직접 수혜 산업 + 기간/분산 근거를 함께 생각해보세요!'),
-                  ),
-                FilledButton.icon(
-                  onPressed: _submitted ? null : _submit,
-                  icon: const Icon(Icons.check_circle),
-                  label: Text(_wrongAttempts == 0 ? '정답 확인' : '재도전 확정'),
-                ),
-                if (_resultText != null) ...[
-                  const SizedBox(height: 10),
-                  Text(_resultText!, style: const TextStyle(fontWeight: FontWeight.w700)),
-                ]
-              ],
-            ),
+            ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _gameSection({required String title, required Widget child}) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        color: Colors.white,
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x12000000),
+            blurRadius: 14,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
+          const SizedBox(height: 6),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _tag(String text, Color bg, Color fg) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: 12),
+      ),
     );
   }
 }
@@ -779,10 +1244,15 @@ class _WeeklyReportTab extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('📈 전체 요약', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text(
+                    '📈 전체 요약',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 6),
                   Text('평균 수익률: ${state.avgReturn.toStringAsFixed(1)}%'),
-                  Text('퀴즈 정확도: ${state.solvedCount == 0 ? 0 : (state.quizCorrectCount / state.solvedCount * 100).round()}%'),
+                  Text(
+                    '퀴즈 정확도: ${state.solvedCount == 0 ? 0 : (state.quizCorrectCount / state.solvedCount * 100).round()}%',
+                  ),
                   Text('최고 연속 정답: ${state.bestStreak}회'),
                   Text('힌트 사용: ${state.hintUsedCount}회'),
                   Text('현재 자산: ${state.cash}코인'),
@@ -804,8 +1274,10 @@ class _WeeklyReportTab extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('주간 리포트 $week (시나리오 ${list.first.scenarioId}~${list.last.scenarioId})',
-                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text(
+                      '주간 리포트 $week (시나리오 ${list.first.scenarioId}~${list.last.scenarioId})',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     const SizedBox(height: 6),
                     Text('주간 손익: ${profit >= 0 ? '+' : ''}$profit코인'),
                     Text('퀴즈 정답: $correct/${list.length}'),
@@ -821,14 +1293,15 @@ class _WeeklyReportTab extends StatelessWidget {
                 padding: EdgeInsets.all(14),
                 child: Text('아직 리포트가 없어요. 탐험 맵에서 첫 시나리오를 플레이해보세요!'),
               ),
-            )
+            ),
         ],
       ),
     );
   }
 
   String _riskComment(List<ScenarioResult> list) {
-    final avg = list.fold<int>(0, (acc, e) => acc + e.returnPercent) / list.length;
+    final avg =
+        list.fold<int>(0, (acc, e) => acc + e.returnPercent) / list.length;
     if (avg >= 12) return '근거 추론이 안정적이에요! 이제 분산 전략을 더 섬세하게 다듬어봐요.';
     if (avg >= 0) return '괜찮은 흐름! 기간(단기/중기) 판단을 더하면 점프할 수 있어요.';
     return '오답 뒤 재정비가 중요해요. 힌트 없이 근거를 먼저 정리해보자!';
@@ -866,16 +1339,19 @@ class _GuideTab extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('진행 초기화', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text(
+                    '진행 초기화',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 8),
                   FilledButton.tonal(
                     onPressed: onReset,
                     child: const Text('처음부터 다시 탐험하기'),
-                  )
+                  ),
                 ],
               ),
             ),
-          )
+          ),
         ],
       ),
     );
