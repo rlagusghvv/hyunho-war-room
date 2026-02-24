@@ -186,6 +186,17 @@ Think of it like a human reviewing their journal and updating their mental model
 
 The goal: Be helpful without being annoying. Check in a few times a day, do useful background work, but respect quiet time.
 
+## 운영 고정 체크리스트 (쿠팡 코끼리/경제 탐험대 배포)
+
+배포/재기동 완료 보고 전에 아래 4개를 **반드시 모두 통과**한다.
+
+1. `/app`, `/econ` 둘 다 HTTP 200 확인
+2. 핵심 정적 파일 응답 확인 (`index.html`, `main.dart.js`)
+3. pull 후 누락 디렉토리 점검 (`public/app`, `public/econ`)
+4. 재시작 후 외부 URL 헬스체크까지 완료
+
+위 4개 중 하나라도 미통과면 "완료"로 보고하지 않는다.
+
 ## Make It Yours
 
 This is a starting point. Add your own conventions, style, and rules as you figure out what works.
