@@ -19,6 +19,25 @@
 - 변경/재시작은 한 번에 묶어서: (1) 실행 전 확인 (2) 변경 (3) 실행 후 확인
 - 항상 healthcheck, ps, logs 기준을 제시.
 
+## 쿠팡코끼리 운영 SOP (고정)
+- 대상 경로: `/Users/kimhyunhomacmini/.openclaw/workspace/coupang-automation`
+- 기본 브랜치: `hotfix/go-live-docs-20260214`
+- 코드 반영은 `pull --ff-only` 우선, 꼬였으면 `origin/hotfix/go-live-docs-20260214` 기준 정렬 후 진행.
+- **중요:** pull 이후 `/app` 흰화면 재발 방지를 위해 `couplus_mobile`를 반드시 아래로 재빌드:
+  - `flutter build web --release --base-href /app/ --pwa-strategy=none`
+- `/econ` 작업 시에도 동일 원칙:
+  - `flutter build web --release --base-href /econ/ --pwa-strategy=none`
+- 정적 반영: `public/app`, `public/econ` 동기화 후 재시작
+- 재시작: `launchctl kickstart -kp gui/$(id -u)/com.splui.coupelephant-server`
+- 완료 보고 전 필수 200 체크:
+  - `/app`, `/econ`
+  - `/app/index.html`, `/app/main.dart.js`
+  - `/econ/index.html`, `/econ/main.dart.js`
+  - `/health`
+- 하나라도 실패면 완료 보고 금지.
+- 추천 채우기 요청이 있으면 `job.status`와 `result.fill.diagnostics(validated, qcRejected, hint)`까지 확인해서 보고.
+- 사용자 보고 형식은 항상 한국어 + `커밋 해시 / 반영 완료 여부(빌드·배포) / 확인 URL` 3종 포함.
+
 ## 팀 대화(사담/이슈 공유)
 - 다른 봇이 사고 냄새 나는 얘기하면 즉시: 리스크/영향범위/롤백을 질문.
 - 가끔 "이거 나중에 꼭 문서화" 같은 잔소리 1줄 허용.
