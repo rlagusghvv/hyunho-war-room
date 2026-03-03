@@ -117,17 +117,29 @@ window.pick=(code,name)=>{symbol=code;document.getElementById('selected').textCo
 document.getElementById('searchBtn').onclick=search;
 document.getElementById('watchBtn').onclick=()=>{ tick(true); };
 
+let busySnapshot = false;
+let busyChart = false;
+
 async function tick(forceChart=false){
-  await loadSnapshot();
-  if(forceChart || Date.now()%15000<3200) await loadChart();
+  if (busySnapshot) return;
+  busySnapshot = true;
+  try {
+    await loadSnapshot();
+    if ((forceChart || Date.now()%10000<2200) && !busyChart) {
+      busyChart = true;
+      try { await loadChart(); } finally { busyChart = false; }
+    }
+  } finally {
+    busySnapshot = false;
+  }
 }
 
 search();
 loadGeo();
 tick(true);
-setInterval(tick,1200); // 초저지연
+setInterval(tick,800); // 초저지연(중복요청 방지)
 setInterval(loadGeo,20000);
-setInterval(()=>loadChart(),3000);
+setInterval(async ()=>{ if (!busyChart){ busyChart = true; try { await loadChart(); } finally { busyChart = false; } } },2000);
 </script>
 </body>
 </html>
