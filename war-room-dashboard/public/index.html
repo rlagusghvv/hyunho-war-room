@@ -125,9 +125,9 @@ async function tick(forceChart=false){
 search();
 loadGeo();
 tick(true);
-setInterval(tick,3000); // 거의 라이브
-setInterval(loadGeo,30000);
-setInterval(()=>loadChart(),10000);
+setInterval(tick,1200); // 초저지연
+setInterval(loadGeo,20000);
+setInterval(()=>loadChart(),3000);
 </script>
 </body>
 </html>
