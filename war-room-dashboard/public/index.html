@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>War Room Dashboard</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; background: #0b1020; color: #e5e7eb; }
+    .wrap { padding: 16px; display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
+    .card { background: #111827; border: 1px solid #243041; border-radius: 12px; padding: 12px; }
+    h2 { margin: 0 0 8px; font-size: 16px; }
+    .muted { color: #9ca3af; font-size: 12px; }
+    .row { padding: 8px 0; border-bottom: 1px solid #1f2937; }
+    .row:last-child { border-bottom: none; }
+    .tag { font-size: 11px; padding: 2px 6px; border-radius: 999px; background: #1f2937; margin-right: 6px; }
+    .good { color: #34d399; }
+    .bad { color: #f87171; }
+    a { color: #93c5fd; text-decoration: none; }
+    @media (max-width: 900px) { .wrap { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h2>전쟁/지정학 (Reuters/AP 중심)</h2>
+      <div id="geoMeta" class="muted">loading...</div>
+      <div id="geo"></div>
+    </div>
+
+    <div class="card">
+      <h2>에임드바이오 수급/시세</h2>
+      <div id="mkMeta" class="muted">loading...</div>
+      <div id="mk"></div>
+    </div>
+
+    <div class="card" style="grid-column: 1 / -1;">
+      <h2>운영 원칙</h2>
+      <div class="row">팩트(공식/API) / 추정(해석) / 루머(미확인) 라벨 분리</div>
+      <div class="row">투자자 동향: 개인·외국인·기관 + 기타법인 추정 잔량 고정</div>
+      <div class="row">자동 새로고침: 60초</div>
+    </div>
+  </div>
+
+  <script>
+    function n(x){ return Number(x||0).toLocaleString('ko-KR'); }
+
+    async function loadGeo(){
+      const r = await fetch('/api/geopolitics');
+      const j = await r.json();
+      document.getElementById('geoMeta').textContent = j.ok ? `updated: ${new Date(j.updatedAt).toLocaleString('ko-KR')}` : `error: ${j.error}`;
+      if(!j.ok) return;
+      document.getElementById('geo').innerHTML = j.items.map(it => `
+        <div class='row'>
+          <span class='tag'>${it.source}</span>
+          <a href='${it.link}' target='_blank' rel='noreferrer'>${it.title}</a>
+          <div class='muted'>${new Date(it.pubDate).toLocaleString('ko-KR')}</div>
+        </div>
+      `).join('');
+    }
+
+    async function loadMarket(){
+      const r = await fetch('/api/aimedbio');
+      const j = await r.json();
+      document.getElementById('mkMeta').textContent = j.ok ? `updated: ${new Date(j.updatedAt).toLocaleString('ko-KR')}` : `error: ${j.error}`;
+      if(!j.ok) return;
+      const d=j.data;
+      const cls = d.changePct >= 0 ? 'good' : 'bad';
+      document.getElementById('mk').innerHTML = `
+        <div class='row'>현재가 <b>${n(d.price)}</b>원 <span class='${cls}'>(${d.changePct}%)</span></div>
+        <div class='row'>고/저: ${n(d.high)} / ${n(d.low)} · 거래량 ${n(d.volume)}</div>
+        <div class='row'>개인 ${n(d.investor.personal)} · 외국인 ${n(d.investor.foreign)} · 기관 ${n(d.investor.inst)}</div>
+        <div class='row'>기타법인 추정: ${n(d.investor.otherEst)}</div>
+      `;
+    }
+
+    async function tick(){
+      await Promise.allSettled([loadGeo(), loadMarket()]);
+    }
+    tick();
+    setInterval(tick, 60000);
+  </script>
+</body>
+</html>
