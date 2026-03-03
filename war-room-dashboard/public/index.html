@@ -5,79 +5,129 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>War Room Dashboard</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; background: #0b1020; color: #e5e7eb; }
-    .wrap { padding: 16px; display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
-    .card { background: #111827; border: 1px solid #243041; border-radius: 12px; padding: 12px; }
-    h2 { margin: 0 0 8px; font-size: 16px; }
-    .muted { color: #9ca3af; font-size: 12px; }
-    .row { padding: 8px 0; border-bottom: 1px solid #1f2937; }
-    .row:last-child { border-bottom: none; }
-    .tag { font-size: 11px; padding: 2px 6px; border-radius: 999px; background: #1f2937; margin-right: 6px; }
-    .good { color: #34d399; }
-    .bad { color: #f87171; }
-    a { color: #93c5fd; text-decoration: none; }
-    @media (max-width: 900px) { .wrap { grid-template-columns: 1fr; } }
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0b1020;color:#e5e7eb;margin:0}
+    .wrap{display:grid;grid-template-columns:1.2fr 1fr;gap:12px;padding:14px}
+    .card{background:#111827;border:1px solid #273447;border-radius:12px;padding:12px}
+    h2{margin:0 0 8px;font-size:16px}.muted{color:#93a3b8;font-size:12px}
+    .row{padding:6px 0;border-bottom:1px solid #1f2937}.row:last-child{border-bottom:none}
+    input{background:#0f172a;color:#e5e7eb;border:1px solid #334155;border-radius:8px;padding:8px;width:220px}
+    button{background:#2563eb;color:#fff;border:none;border-radius:8px;padding:8px 10px;cursor:pointer}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    table{width:100%;border-collapse:collapse;font-size:12px}td,th{padding:4px;border-bottom:1px solid #1f2937;text-align:right}th:first-child,td:first-child{text-align:center}
+    .good{color:#34d399}.bad{color:#f87171}
+    canvas{width:100%;height:220px;background:#0f172a;border-radius:8px}
+    .tags{font-size:11px;padding:2px 6px;border-radius:999px;background:#1f2937;margin-right:6px}
+    @media(max-width:1000px){.wrap{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <h2>전쟁/지정학 (Reuters/AP 중심)</h2>
-      <div id="geoMeta" class="muted">loading...</div>
-      <div id="geo"></div>
-    </div>
-
-    <div class="card">
-      <h2>에임드바이오 수급/시세</h2>
-      <div id="mkMeta" class="muted">loading...</div>
-      <div id="mk"></div>
-    </div>
-
-    <div class="card" style="grid-column: 1 / -1;">
-      <h2>운영 원칙</h2>
-      <div class="row">팩트(공식/API) / 추정(해석) / 루머(미확인) 라벨 분리</div>
-      <div class="row">투자자 동향: 개인·외국인·기관 + 기타법인 추정 잔량 고정</div>
-      <div class="row">자동 새로고침: 60초</div>
-    </div>
+<div class="wrap">
+  <div class="card" style="grid-column:1/-1">
+    <h2>종목 검색 / 실시간 전광판</h2>
+    <input id="q" placeholder="종목명 또는 코드" value="에임드바이오" />
+    <button id="searchBtn">검색</button>
+    <button id="watchBtn">선택종목 보기</button>
+    <span class="muted" id="selected">선택: 0009K0</span>
+    <div id="searchResults" class="muted" style="margin-top:8px"></div>
   </div>
 
-  <script>
-    function n(x){ return Number(x||0).toLocaleString('ko-KR'); }
+  <div class="card">
+    <h2>시세/수급 (거의 실시간)</h2>
+    <div id="meta" class="muted">loading...</div>
+    <div id="snapshot"></div>
+  </div>
 
-    async function loadGeo(){
-      const r = await fetch('/api/geopolitics');
-      const j = await r.json();
-      document.getElementById('geoMeta').textContent = j.ok ? `updated: ${new Date(j.updatedAt).toLocaleString('ko-KR')}` : `error: ${j.error}`;
-      if(!j.ok) return;
-      document.getElementById('geo').innerHTML = j.items.map(it => `
-        <div class='row'>
-          <span class='tag'>${it.source}</span>
-          <a href='${it.link}' target='_blank' rel='noreferrer'>${it.title}</a>
-          <div class='muted'>${new Date(it.pubDate).toLocaleString('ko-KR')}</div>
-        </div>
-      `).join('');
-    }
+  <div class="card">
+    <h2>호가창 (Top 10)</h2>
+    <div id="bookMeta" class="muted">-</div>
+    <table>
+      <thead><tr><th>호가</th><th>매도</th><th>가격</th><th>매수</th></tr></thead>
+      <tbody id="book"></tbody>
+    </table>
+  </div>
 
-    async function loadMarket(){
-      const r = await fetch('/api/aimedbio');
-      const j = await r.json();
-      document.getElementById('mkMeta').textContent = j.ok ? `updated: ${new Date(j.updatedAt).toLocaleString('ko-KR')}` : `error: ${j.error}`;
-      if(!j.ok) return;
-      const d=j.data;
-      const cls = d.changePct >= 0 ? 'good' : 'bad';
-      document.getElementById('mk').innerHTML = `
-        <div class='row'>현재가 <b>${n(d.price)}</b>원 <span class='${cls}'>(${d.changePct}%)</span></div>
-        <div class='row'>고/저: ${n(d.high)} / ${n(d.low)} · 거래량 ${n(d.volume)}</div>
-        <div class='row'>개인 ${n(d.investor.personal)} · 외국인 ${n(d.investor.foreign)} · 기관 ${n(d.investor.inst)}</div>
-        <div class='row'>기타법인 추정: ${n(d.investor.otherEst)}</div>
-      `;
-    }
+  <div class="card">
+    <h2>실시간 차트</h2>
+    <canvas id="chart" width="900" height="220"></canvas>
+  </div>
 
-    async function tick(){
-      await Promise.allSettled([loadGeo(), loadMarket()]);
-    }
-    tick();
-    setInterval(tick, 60000);
-  </script>
+  <div class="card">
+    <h2>전쟁/지정학 헤드라인</h2>
+    <div id="geoMeta" class="muted">loading...</div>
+    <div id="geo"></div>
+  </div>
+</div>
+
+<script>
+let symbol='0009K0';
+const fmt=n=>Number(n||0).toLocaleString('ko-KR');
+
+function drawChart(rows){
+  const c=document.getElementById('chart');const ctx=c.getContext('2d');
+  ctx.clearRect(0,0,c.width,c.height);
+  if(!rows?.length) return;
+  const p=rows.map(r=>r.p).filter(Boolean); if(!p.length) return;
+  const min=Math.min(...p), max=Math.max(...p); const pad=12;
+  ctx.strokeStyle='#334155'; ctx.strokeRect(0,0,c.width,c.height);
+  ctx.beginPath(); ctx.strokeStyle='#60a5fa'; ctx.lineWidth=2;
+  rows.forEach((r,i)=>{const x=pad + (i*(c.width-pad*2))/Math.max(1,rows.length-1); const y=(c.height-pad)-((r.p-min)/(Math.max(1,max-min)))*(c.height-pad*2); if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);});
+  ctx.stroke();
+  ctx.fillStyle='#93a3b8'; ctx.font='12px sans-serif';
+  ctx.fillText(`min ${fmt(min)} / max ${fmt(max)}`, 10, 16);
+}
+
+async function loadSnapshot(){
+  const r=await fetch(`/api/snapshot?symbol=${symbol}`); const j=await r.json();
+  if(!j.ok){document.getElementById('meta').textContent='error: '+j.error; return;}
+  const d=j.data;
+  document.getElementById('meta').textContent=`updated: ${new Date(j.updatedAt).toLocaleTimeString('ko-KR')}`;
+  document.getElementById('bookMeta').textContent=`체결시각: ${d.asOf||'-'} · 총매도 ${fmt(d.orderbook.totalAsk)} / 총매수 ${fmt(d.orderbook.totalBid)}`;
+  const cls=d.changePct>=0?'good':'bad';
+  document.getElementById('snapshot').innerHTML=`
+    <div class='row'>현재가 <b>${fmt(d.price)}</b>원 <span class='${cls}'>(${d.changePct}%)</span></div>
+    <div class='row'>고/저 ${fmt(d.high)} / ${fmt(d.low)} · 거래량 ${fmt(d.volume)}</div>
+    <div class='row'>개인 ${fmt(d.investor.personal)} · 외국인 ${fmt(d.investor.foreign)} · 기관 ${fmt(d.investor.inst)}</div>
+    <div class='row'>기타법인 추정 ${fmt(d.investor.otherEst)} · 프로그램 ${fmt(d.program.netQty)}주</div>
+  `;
+  document.getElementById('book').innerHTML=d.orderbook.levels.map(l=>`<tr><td>${l.n}</td><td>${fmt(l.askQty)}</td><td>${fmt(l.ask||l.bid)}</td><td>${fmt(l.bidQty)}</td></tr>`).join('');
+}
+
+async function loadChart(){
+  const r=await fetch(`/api/chart?symbol=${symbol}`); const j=await r.json();
+  if(j.ok) drawChart(j.data);
+}
+
+async function loadGeo(){
+  const r=await fetch('/api/geopolitics'); const j=await r.json();
+  document.getElementById('geoMeta').textContent=j.ok?`updated: ${new Date(j.updatedAt).toLocaleTimeString('ko-KR')}`:`error: ${j.error}`;
+  if(!j.ok) return;
+  document.getElementById('geo').innerHTML=j.items.slice(0,8).map(it=>`<div class='row'><span class='tags'>${it.source}</span><a href='${it.link}' target='_blank' style='color:#93c5fd'>${it.title}</a></div>`).join('');
+}
+
+async function search(){
+  const q=document.getElementById('q').value.trim();
+  if(!q) return;
+  const r=await fetch(`/api/search?q=${encodeURIComponent(q)}`); const j=await r.json();
+  if(!j.ok) return;
+  const html=(j.items||[]).slice(0,8).map(it=>`<button onclick="pick('${it.code}','${it.name}')" style="margin:4px;background:#1f2937">${it.name} (${it.code})</button>`).join('');
+  document.getElementById('searchResults').innerHTML=html || '검색 결과 없음';
+}
+window.pick=(code,name)=>{symbol=code;document.getElementById('selected').textContent=`선택: ${name} (${code})`;};
+
+document.getElementById('searchBtn').onclick=search;
+document.getElementById('watchBtn').onclick=()=>{ tick(true); };
+
+async function tick(forceChart=false){
+  await loadSnapshot();
+  if(forceChart || Date.now()%15000<3200) await loadChart();
+}
+
+search();
+loadGeo();
+tick(true);
+setInterval(tick,3000); // 거의 라이브
+setInterval(loadGeo,30000);
+setInterval(()=>loadChart(),10000);
+</script>
 </body>
 </html>
