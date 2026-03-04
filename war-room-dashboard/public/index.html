@@ -119,10 +119,11 @@ function drawChart(rows){
   const c=document.getElementById('chart'), ctx=c.getContext('2d');
   ctx.clearRect(0,0,c.width,c.height);
   if(!rows?.length) return;
-  const highs=rows.map(r=>r.h).filter(Boolean), lows=rows.map(r=>r.l).filter(Boolean);
+  const highs=rows.map(r=>r.h).filter(Boolean), lows=rows.map(r=>r.l).filter(Boolean), vols=rows.map(r=>r.v||0);
   if(!highs.length || !lows.length) return;
-  const min=Math.min(...lows), max=Math.max(...highs); const pad=24;
-  const yv=v=>(c.height-pad)-((v-min)/(Math.max(1,max-min)))*(c.height-pad*2);
+  const min=Math.min(...lows), max=Math.max(...highs), maxV=Math.max(1,...vols);
+  const pad=24, priceTop=pad, priceBottom=c.height*0.72, volTop=c.height*0.76, volBottom=c.height-pad;
+  const yv=v=>priceBottom-((v-min)/(Math.max(1,max-min)))*(priceBottom-priceTop);
   ctx.strokeStyle='#1f2937'; ctx.strokeRect(0,0,c.width,c.height);
   const w=Math.max(2, (c.width-pad*2)/Math.max(1,rows.length)*0.6);
   rows.forEach((r,i)=>{
@@ -134,9 +135,12 @@ function drawChart(rows){
     ctx.fillStyle=up?'#14532d':'#7f1d1d';
     const y=Math.min(yo,yc), h=Math.max(2,Math.abs(yc-yo));
     ctx.fillRect(x-w/2,y,w,h);
+    const vh=((r.v||0)/maxV)*(volBottom-volTop);
+    ctx.fillStyle=up?'#166534aa':'#991b1baa';
+    ctx.fillRect(x-w/2, volBottom-vh, w, vh);
   });
   ctx.fillStyle='#9ca3af'; ctx.font='12px sans-serif';
-  ctx.fillText(`1분봉 · 고점 ${fmt(max)} / 저점 ${fmt(min)} · 최근 ${rows.length}봉`, 10, 16);
+  ctx.fillText(`1분봉(캔들+거래량) · 고점 ${fmt(max)} / 저점 ${fmt(min)} · 최근 ${rows.length}봉`, 10, 16);
   const first=rows[0].c, last=rows[rows.length-1].c;
   document.getElementById('chartMeta').textContent = `최근 추세: ${last>first?'상승':'하락/횡보'} · 업데이트 ${new Date().toLocaleTimeString('ko-KR')}`;
 }

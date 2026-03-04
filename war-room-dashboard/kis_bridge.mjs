@@ -84,9 +84,17 @@ async function snapshot(symbol){
   };
 }
 
+function kstHHMMSS(){
+  const d = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const hh = String(d.getUTCHours()).padStart(2,'0');
+  const mm = String(d.getUTCMinutes()).padStart(2,'0');
+  return `${hh}${mm}00`;
+}
+
 async function chart(symbol){
-  const r=await kisRequest({path:'/uapi/domestic-stock/v1/quotations/inquire-time-itemchartprice',tr_id:'FHKST03010200',params:{FID_ETC_CLS_CODE:'0',FID_COND_MRKT_DIV_CODE:'UN',FID_INPUT_ISCD:symbol,FID_INPUT_HOUR_1:'200000',FID_PW_DATA_INCU_YN:'Y'}});
-  return (r.output2||[]).slice(0,120).reverse().map(x=>({
+  const hour = kstHHMMSS();
+  const r=await kisRequest({path:'/uapi/domestic-stock/v1/quotations/inquire-time-itemchartprice',tr_id:'FHKST03010200',params:{FID_ETC_CLS_CODE:'0',FID_COND_MRKT_DIV_CODE:'UN',FID_INPUT_ISCD:symbol,FID_INPUT_HOUR_1:hour,FID_PW_DATA_INCU_YN:'Y'}});
+  let rows=(r.output2||[]).slice(0,240).reverse().map(x=>({
     t:x.stck_cntg_hour,
     o:Number(x.stck_oprc||x.stck_prpr||0),
     h:Number(x.stck_hgpr||x.stck_prpr||0),
@@ -94,6 +102,10 @@ async function chart(symbol){
     c:Number(x.stck_prpr||0),
     v:Number(x.cntg_vol||0)
   }));
+  // keep meaningful candles first; if too few, return raw rows
+  const meaningful = rows.filter(x => x.v > 0 || x.h !== x.l);
+  if (meaningful.length >= 20) rows = meaningful;
+  return rows.slice(-120);
 }
 
 async function portfolio(){
