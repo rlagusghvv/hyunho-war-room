@@ -134,8 +134,8 @@ app.get('/api/community', async (req, res) => {
 
 app.get('/api/markets', async (_req, res) => {
   try {
-    const symbols = ['^kospi', '^spx', '^ndq', '^dji', 'cl.f', 'gc.f', 'ng.f', 'si.f', 'hg.f', 'btcusd'];
-    const names = { '^kospi':'KOSPI', '^spx': 'S&P500', '^ndq': 'NASDAQ100', '^dji': 'DOW', 'cl.f': 'WTI', 'gc.f': 'GOLD', 'ng.f':'NATGAS', 'si.f':'SILVER', 'hg.f':'COPPER', 'btcusd': 'BTC' };
+    const symbols = ['^kospi', '^spx', '^ndq', '^dji', 'usdkrw', 'cl.f', 'gc.f', 'ng.f', 'si.f', 'hg.f', 'btcusd'];
+    const names = { '^kospi':'KOSPI', '^spx': 'S&P500', '^ndq': 'NASDAQ100', '^dji': 'DOW', 'usdkrw':'USDKRW', 'cl.f': 'WTI', 'gc.f': 'GOLD', 'ng.f':'NATGAS', 'si.f':'SILVER', 'hg.f':'COPPER', 'btcusd': 'BTC' };
     const out = [];
     for (const s of symbols) {
       const u = `https://stooq.com/q/l/?s=${encodeURIComponent(s)}&f=sd2t2ohlcv&h&e=csv`;
@@ -143,7 +143,10 @@ app.get('/api/markets', async (_req, res) => {
       const lines = txt.trim().split('\n');
       const row = (lines[1] || '').split(',');
       const [symbol, date, time, open, high, low, close] = row;
-      out.push({ symbol: names[s] || symbol, rawSymbol: s, date, time, open: Number(open || 0), high: Number(high || 0), low: Number(low || 0), close: Number(close || 0) });
+      const o = Number(open || 0), c = Number(close || 0);
+      const chg = c - o;
+      const pct = o ? (chg / o) * 100 : 0;
+      out.push({ symbol: names[s] || symbol, rawSymbol: s, date, time, open: o, high: Number(high || 0), low: Number(low || 0), close: c, chg, pct });
     }
     res.json({ ok: true, updatedAt: new Date().toISOString(), items: out });
   } catch (e) {
@@ -173,6 +176,7 @@ app.get('/api/macro-history', async (_req, res) => {
       { s: '^kospi', n: 'KOSPI' },
       { s: '^spx', n: 'S&P500' },
       { s: '^ndq', n: 'NASDAQ100' },
+      { s: 'usdkrw', n: 'USDKRW' },
       { s: 'gc.f', n: 'GOLD' },
       { s: 'cl.f', n: 'WTI' },
       { s: 'ng.f', n: 'NATGAS' },

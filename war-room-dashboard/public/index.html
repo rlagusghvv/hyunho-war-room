@@ -51,6 +51,11 @@
     <div class="card full topbar" id="topbar"></div>
 
     <div class="card full">
+      <h3 style="margin:0 0 8px">메인 매크로 보드 (지수/달러/원자재)</h3>
+      <div id="macroMain" class="topbar"></div>
+    </div>
+
+    <div class="card full">
       <h3 style="margin:0 0 8px">내 보유 현황</h3>
       <div class="sub" id="pfMeta">-</div>
       <div id="portfolio"></div>
@@ -215,12 +220,12 @@ async function loadCommunity(){
 function drawIndexChart(series){
   const c=document.getElementById('idxChart'), ctx=c.getContext('2d');
   ctx.clearRect(0,0,c.width,c.height);
-  const keys=['KOSPI','S&P500','NASDAQ100','GOLD','WTI','NATGAS','SILVER','COPPER'];
+  const keys=['KOSPI','S&P500','NASDAQ100','USDKRW','GOLD','WTI','NATGAS','SILVER','COPPER'];
   const present=keys.filter(k=>series?.[k]?.length);
   if(!present.length) return;
   const pad=20;
   ctx.strokeStyle='#1f2937'; ctx.strokeRect(0,0,c.width,c.height);
-  const colors={KOSPI:'#a78bfa','S&P500':'#60a5fa','NASDAQ100':'#22c55e',GOLD:'#fbbf24',WTI:'#ef4444',NATGAS:'#06b6d4',SILVER:'#cbd5e1',COPPER:'#f97316'};
+  const colors={KOSPI:'#a78bfa','S&P500':'#60a5fa','NASDAQ100':'#22c55e','USDKRW':'#f43f5e',GOLD:'#fbbf24',WTI:'#ef4444',NATGAS:'#06b6d4',SILVER:'#cbd5e1',COPPER:'#f97316'};
 
   // normalize each series to index 100 for overlay readability
   for(const k of present){
@@ -248,8 +253,16 @@ async function loadMarketHistory(){
 async function loadMarkets(){
   const j=await fetch('/api/markets').then(r=>r.json());
   const el=document.getElementById('panel-market');
-  if(!j.ok) return el.innerHTML=`<div class='item'>마켓 로드 실패: ${j.error}</div>`;
-  el.innerHTML=j.items.map(m=>`<div class='item'><b>${m.symbol}</b> ${fmt(m.close)} <span class='sub'>(H:${fmt(m.high)} L:${fmt(m.low)})</span></div>`).join('');
+  const main=document.getElementById('macroMain');
+  if(!j.ok){
+    el.innerHTML=`<div class='item'>마켓 로드 실패: ${j.error}</div>`;
+    main.innerHTML='';
+    return;
+  }
+  const focus=['KOSPI','S&P500','NASDAQ100','USDKRW','WTI','GOLD','NATGAS','SILVER','COPPER'];
+  const sorted=[...j.items].sort((a,b)=>focus.indexOf(a.symbol)-focus.indexOf(b.symbol));
+  el.innerHTML=sorted.map(m=>`<div class='item'><b>${m.symbol}</b> ${fmt(m.close)} <span class='${m.pct>=0?'up':'dn'}'>${m.pct>=0?'+':''}${m.pct.toFixed(2)}%</span> <span class='sub'>(Δ ${m.chg>=0?'+':''}${fmt(Math.round(m.chg*100)/100)} | H:${fmt(m.high)} L:${fmt(m.low)})</span></div>`).join('');
+  main.innerHTML=sorted.slice(0,9).map(m=>`<div class='metric'><div class='k'>${m.symbol}</div><div class='v'>${fmt(m.close)}</div><div class='${m.pct>=0?'up':'dn'}'>${m.pct>=0?'+':''}${m.pct.toFixed(2)}% (${m.chg>=0?'+':''}${fmt(Math.round(m.chg*100)/100)})</div></div>`).join('');
 }
 
 async function search(){
