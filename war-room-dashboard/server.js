@@ -150,6 +150,15 @@ app.get('/api/markets', async (_req, res) => {
       const valid = Number.isFinite(c) && c > 0;
       if (!valid && prev) {
         ({ open: o, close: c, high: h, low: l } = prev);
+      } else if (!valid && !prev) {
+        try {
+          const hu = `https://stooq.com/q/d/l/?s=${encodeURIComponent(s)}&i=d`;
+          const htxt = await fetch(hu, { headers: { 'user-agent': 'Mozilla/5.0' } }).then((r) => r.text());
+          const hlines = htxt.trim().split('\n').slice(1).filter(Boolean);
+          const last = (hlines[hlines.length - 1] || '').split(',');
+          const [, ho, hh, hl, hc] = last;
+          o = Number(ho); h = Number(hh); l = Number(hl); c = Number(hc);
+        } catch {}
       }
       const chg = Number.isFinite(o) && Number.isFinite(c) ? c - o : null;
       const pct = Number.isFinite(o) && o !== 0 && Number.isFinite(c) ? (chg / o) * 100 : null;
@@ -211,8 +220,17 @@ app.get('/api/macro-history', async (_req, res) => {
 app.get('/api/intel', async (_req, res) => {
   try {
     const feeds = [
-      { url: 'https://www.yna.co.kr/rss/economy.xml', tag: 'KR-경제' },
-      { url: 'https://www.mk.co.kr/rss/30000001/', tag: 'KR-종합' },
+      // KR
+      { url: 'https://www.yna.co.kr/rss/economy.xml', tag: 'KR-연합경제' },
+      { url: 'https://www.mk.co.kr/rss/30000001/', tag: 'KR-매경' },
+      // global wire/media (worldmonitor style)
+      { url: 'https://feeds.bbci.co.uk/news/world/rss.xml', tag: 'BBC-World' },
+      { url: 'https://www.theguardian.com/world/rss', tag: 'Guardian-World' },
+      { url: 'https://news.google.com/rss/search?q=site:apnews.com&hl=en-US&gl=US&ceid=US:en', tag: 'AP' },
+      { url: 'https://news.google.com/rss/search?q=site:reuters.com+world&hl=en-US&gl=US&ceid=US:en', tag: 'Reuters' },
+      { url: 'https://www.cnbc.com/id/100003114/device/rss/rss.html', tag: 'CNBC' },
+      { url: 'https://finance.yahoo.com/rss/topstories', tag: 'YahooFinance' },
+      // alerts
       { url: 'https://www.who.int/rss-feeds/news-english.xml', tag: 'WHO' },
       { url: 'https://travel.state.gov/_res/rss/TAsTWs.xml', tag: 'US-Travel' },
       { url: 'https://www.safetravel.govt.nz/news/feed', tag: 'NZ-Travel' }
