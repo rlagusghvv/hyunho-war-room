@@ -143,6 +143,7 @@
     </div>
   </div>
 
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <script>
 let symbol='0009K0', name='에임드바이오', snap=null, chart=[], portfolio=null, macroSeries={}, lastMarkets={};
 const fmt=n=>Number(n||0).toLocaleString('ko-KR');
@@ -249,42 +250,70 @@ async function loadIntel(){
   el.innerHTML=j.items.slice(0,12).map(x=>`<div class='item'><span class='badge'>${x.source}</span><a href='${x.link}' target='_blank'>${x.title}</a></div>`).join('');
 }
 
-function loadLiveNews(){
-  const channels = [
-    { name:'YTN', embed:'https://www.youtube.com/embed/live_stream?channel=UChlgI3UHCOnwUGzWzbJ3H5w', watch:'https://www.youtube.com/@YTNnews24/live' },
-    { name:'연합뉴스TV', embed:'https://www.youtube.com/embed/live_stream?channel=UCsU-I-vHLiaMfV_ceaYz5rQ', watch:'https://www.youtube.com/@yonhapnewstv23/live' },
-    { name:'Reuters', embed:'https://www.youtube.com/embed/live_stream?channel=UChqUTb7kYRX8-EiaN3XFrSQ', watch:'https://www.youtube.com/@Reuters/live' },
-    { name:'Bloomberg', embed:'https://www.youtube.com/embed/live_stream?channel=UCIALMKvObZNtJ6AmdCLP7Lg', watch:'https://www.youtube.com/@BloombergTelevision/live' },
-    { name:'Sky News', embed:'https://www.youtube.com/embed/live_stream?channel=UCoMdktPbSTixAyNGwb-UYkQ', watch:'https://www.youtube.com/@SkyNews/live' },
-    { name:'Al Jazeera', embed:'https://www.youtube.com/embed/live_stream?channel=UCNye-wNBqNL5ZzHSJj3l8Bg', watch:'https://www.youtube.com/@aljazeeraenglish/live' }
-  ];
+async function loadLiveNews(){
   const el=document.getElementById('panel-live');
-  const btns = channels.map((c,i)=>`<button class='${i===0?'primary':''}' onclick='setLiveChannel("${c.embed}","${c.watch}","${c.name}")'>${c.name}</button>`).join(' ');
+  const j = await fetch('/api/live/channels').then(r=>r.json()).catch(()=>({ok:false,items:[]}));
+  if(!j.ok) { el.innerHTML = `<div class='item'>라이브 채널 로드 실패</div>`; return; }
+  const channels = j.items || [];
+  const btns = channels.map((c,i)=>`<button class='${i===0?'primary':''}' onclick='startLiveRelay("${c.id}","${c.name}")'>${c.name}</button>`).join(' ');
   el.innerHTML = `
-    <div class='item sub'>페이지 내 재생이 막히는 채널이 있습니다(유튜브 임베드 정책). 막히면 아래 "현재 탭에서 열기"를 누르면 새창 없이 같은 탭에서 바로 재생됩니다.</div>
+    <div class='item sub'>페이지 내 통합 재생: 서버가 라이브를 HLS로 중계합니다. (초기 5~15초 준비 시간)</div>
     <div class='item'>${btns}</div>
-    <div class='item'><div class='sub' id='liveMeta'>현재 채널: ${channels[0].name}</div><iframe id='liveFrame' class='video-player' src='${channels[0].embed}' allow='autoplay; encrypted-media; picture-in-picture' allowfullscreen></iframe></div>
-    <div class='item'><button id='liveOpenSameTab' class='primary' onclick='openLiveSameTab()'>현재 탭에서 열기</button></div>
+    <div class='item'><div class='sub' id='liveMeta'>채널 선택 후 시작</div><video id='liveVideo' class='video-player' controls autoplay muted playsinline></video></div>
   `;
-  window.__liveWatchUrl = channels[0].watch;
 }
-window.setLiveChannel=(embed,watch,name)=>{
-  const f=document.getElementById('liveFrame'); if(f) f.src=embed;
-  const m=document.getElementById('liveMeta'); if(m) m.textContent=`현재 채널: ${name}`;
-  window.__liveWatchUrl = watch;
+
+window.startLiveRelay = async (id,name)=>{
+  const meta=document.getElementById('liveMeta');
+  if(meta) meta.textContent=`${name} 중계 시작 중...`;
+  await fetch(`/api/live/start/${id}`, { method:'POST' });
+  let tries=0;
+  const timer=setInterval(async ()=>{
+    tries++;
+    const s=await fetch(`/api/live/status/${id}`).then(r=>r.json()).catch(()=>({ok:false}));
+    if(!s.ok){ if(meta) meta.textContent='중계 상태 확인 실패'; clearInterval(timer); return; }
+    if(meta) meta.textContent = s.ready ? `${name} 재생 준비 완료` : `${name} 준비중... (${tries})`;
+    if(s.ready){
+      clearInterval(timer);
+      playHls(s.hls);
+    }
+    if(tries>25){
+      clearInterval(timer);
+      if(meta) meta.textContent = `중계 준비 실패: ${s.lastErr || 'yt-dlp/ffmpeg 확인 필요'}`;
+    }
+  }, 1500);
 };
-window.openLiveSameTab=()=>{
-  if(window.__liveWatchUrl) window.location.href = window.__liveWatchUrl;
+
+window.playHls = (src)=>{
+  const v=document.getElementById('liveVideo');
+  if(!v) return;
+  if(window.Hls && window.Hls.isSupported()){
+    if(window.__hls) try{ window.__hls.destroy(); }catch{}
+    window.__hls = new Hls();
+    window.__hls.loadSource(src);
+    window.__hls.attachMedia(v);
+  } else if (v.canPlayType('application/vnd.apple.mpegurl')) {
+    v.src = src;
+  }
 };
 
 async function loadCommunity(){
   const j=await fetch(`/api/community?symbol=${symbol}&name=${encodeURIComponent(name)}`).then(r=>r.json());
   const el=document.getElementById('panel-community');
   if(!j.ok) return el.innerHTML=`<div class='item'>커뮤니티 로드 실패: ${j.error}</div>`;
-  const naverLink = j.naverBoardUrl
-    ? `<div class='item'><span class='badge'>네이버</span><a href='${j.naverBoardUrl}' target='_blank'>네이버 종토방 바로가기 (${j.naverCode})</a></div>`
+
+  let board = { ok:true, items:[] };
+  if (j.naverCode) {
+    board = await fetch(`/api/naver-board?code=${encodeURIComponent(j.naverCode)}`).then(r=>r.json()).catch(()=>({ok:false,items:[]}));
+  }
+
+  const naverTop = j.naverBoardUrl
+    ? `<div class='item'><span class='badge'>네이버</span><a href='${j.naverBoardUrl}' target='_blank'>네이버 종토방 원본 (${j.naverCode})</a></div>`
     : `<div class='item sub'>네이버 종토방 코드 자동매칭 실패(종목코드 확인 필요)</div>`;
-  el.innerHTML= naverLink + j.items.slice(0,8).map(x=>`<div class='item'><span class='badge'>미확인</span><a href='${x.link}' target='_blank'>${x.title}</a></div>`).join('');
+
+  const boardItems = (board.items||[]).slice(0,8).map(x=>`<div class='item'><span class='badge'>종토방</span><a href='${x.link}' target='_blank'>${x.title}</a></div>`).join('');
+  const rssItems = j.items.slice(0,8).map(x=>`<div class='item'><span class='badge'>미확인</span><a href='${x.link}' target='_blank'>${x.title}</a></div>`).join('');
+  el.innerHTML= naverTop + boardItems + rssItems;
 }
 
 function drawIndexChart(series){

@@ -1,6 +1,7 @@
 const express = require('express');
 const Parser = require('rss-parser');
-const { execFile } = require('child_process');
+const { execFile, spawn } = require('child_process');
+const fs = require('fs');
 const path = require('path');
 
 const app = express();
@@ -8,6 +9,13 @@ const parser = new Parser();
 const PORT = process.env.PORT || 4177;
 const KIS_DIR = process.env.KIS_DIR || __dirname;
 const marketCache = new Map();
+const liveRelays = new Map();
+const YTDLP_BIN = process.env.YTDLP_BIN || '/Users/kimhyunhomacmini/Library/Python/3.9/bin/yt-dlp';
+const liveChannels = {
+  ytn: { id: 'ytn', name: 'YTN', url: 'https://www.youtube.com/@YTNnews24/live' },
+  yonhap: { id: 'yonhap', name: '연합뉴스TV', url: 'https://www.youtube.com/@yonhapnewstv23/live' },
+  reuters: { id: 'reuters', name: 'Reuters', url: 'https://www.youtube.com/@Reuters/live' }
+};
 
 const gfMap = {
   '^spx': 'https://www.google.com/finance/quote/.INX:INDEXSP',
@@ -45,6 +53,53 @@ function runNode(code, cwd, timeout = 15000) {
       resolve(stdout.toString().trim());
     });
   });
+}
+
+function relayDir(id) {
+  return path.join(__dirname, 'public', 'live', id);
+}
+
+function stopRelay(id) {
+  const cur = liveRelays.get(id);
+  if (cur?.proc && !cur.proc.killed) {
+    try { cur.proc.kill('SIGTERM'); } catch {}
+  }
+  liveRelays.delete(id);
+}
+
+async function startRelay(id, url) {
+  const dir = relayDir(id);
+  fs.mkdirSync(dir, { recursive: true });
+  for (const f of fs.readdirSync(dir)) {
+    if (f.endsWith('.ts') || f.endsWith('.m3u8')) {
+      try { fs.unlinkSync(path.join(dir, f)); } catch {}
+    }
+  }
+  stopRelay(id);
+
+  const streamUrl = await new Promise((resolve, reject) => {
+    execFile(YTDLP_BIN, ['-g', '--no-warnings', url], { timeout: 20000 }, (err, stdout, stderr) => {
+      if (err) return reject(new Error((stderr || err.message).toString()));
+      const line = (stdout || '').toString().trim().split('\n')[0];
+      if (!line) return reject(new Error('stream url not found'));
+      resolve(line);
+    });
+  });
+
+  const args = ['-hide_banner', '-loglevel', 'error', '-i', streamUrl, '-c:v', 'copy', '-c:a', 'aac', '-f', 'hls', '-hls_time', '2', '-hls_list_size', '6', '-hls_flags', 'delete_segments+append_list', '-hls_segment_filename', `${dir}/seg_%03d.ts`, `${dir}/index.m3u8`];
+  const proc = spawn('ffmpeg', args, { cwd: __dirname });
+  let lastErr = '';
+  proc.stderr?.on('data', (d) => {
+    lastErr = String(d).slice(-4000);
+    const cur = liveRelays.get(id);
+    if (cur) cur.lastErr = lastErr;
+  });
+  proc.on('exit', (code) => {
+    const cur = liveRelays.get(id);
+    if (cur) cur.exitedCode = code;
+  });
+  liveRelays.set(id, { proc, startedAt: Date.now(), lastErr, url, streamUrl });
+  return { ok: true, id, hls: `/live/${id}/index.m3u8` };
 }
 
 app.get('/api/search', async (req, res) => {
@@ -340,6 +395,63 @@ app.get('/api/intel', async (_req, res) => {
     }
     items.sort((a, b) => new Date(b.pubDate || 0) - new Date(a.pubDate || 0));
     res.json({ ok: true, updatedAt: new Date().toISOString(), items: items.slice(0, 20) });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+app.get('/api/live/channels', (_req, res) => {
+  res.json({ ok: true, items: Object.values(liveChannels) });
+});
+
+app.post('/api/live/start/:id', express.json(), async (req, res) => {
+  const id = (req.params.id || '').toLowerCase();
+  const ch = liveChannels[id];
+  if (!ch) return res.status(404).json({ ok: false, error: 'unknown channel' });
+  try {
+    const r = await startRelay(id, ch.url);
+    res.json({ ok: true, ...r, channel: ch });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+app.post('/api/live/stop/:id', express.json(), (req, res) => {
+  const id = (req.params.id || '').toLowerCase();
+  stopRelay(id);
+  res.json({ ok: true, id });
+});
+
+app.get('/api/live/status/:id', (req, res) => {
+  const id = (req.params.id || '').toLowerCase();
+  const cur = liveRelays.get(id);
+  const m3u8 = path.join(relayDir(id), 'index.m3u8');
+  const ready = fs.existsSync(m3u8) && fs.statSync(m3u8).size > 0;
+  res.json({
+    ok: true,
+    id,
+    running: !!cur && !cur.proc?.killed,
+    ready,
+    startedAt: cur?.startedAt || null,
+    exitedCode: cur?.exitedCode,
+    lastErr: cur?.lastErr || null,
+    hls: `/live/${id}/index.m3u8`
+  });
+});
+
+app.get('/api/naver-board', async (req, res) => {
+  try {
+    const code = (req.query.code || '').toString().trim();
+    if (!code) return res.json({ ok: true, items: [] });
+    const u = `https://finance.naver.com/item/board.naver?code=${encodeURIComponent(code)}&page=1`;
+    const html = await fetch(u, { headers: { 'user-agent': 'Mozilla/5.0' } }).then((r) => r.text());
+    const re = /href="\/(item\/board_read\.naver\?[^"]+)"[^>]*title="([^"]+)"/g;
+    const out = [];
+    let m;
+    while ((m = re.exec(html)) && out.length < 12) {
+      out.push({ title: m[2].trim(), link: `https://finance.naver.com/${m[1]}`, source: '네이버 종토방' });
+    }
+    res.json({ ok: true, items: out });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
