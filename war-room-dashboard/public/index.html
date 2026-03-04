@@ -33,6 +33,9 @@
     .signal{font-weight:700;font-size:18px}
     .badge{font-size:11px;background:#1f2937;border-radius:999px;padding:2px 8px;margin-right:6px}
     .hold-row{display:grid;grid-template-columns:1.4fr .6fr .8fr .8fr;gap:6px;padding:6px 0;border-bottom:1px solid #1f2937;font-size:12px}
+    .modal{position:fixed;inset:0;background:#0009;display:none;z-index:50;padding:20px;overflow:auto}
+    .modal.on{display:block}
+    .modal-card{max-width:1200px;margin:0 auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px}
     @media (max-width:1100px){.wrap,.grid{grid-template-columns:1fr}.topbar{grid-template-columns:1fr 1fr}}
   </style>
 </head>
@@ -43,6 +46,7 @@
         <input id="q" placeholder="종목명/코드 검색" value="에임드바이오"/>
         <button class="primary" id="searchBtn">검색</button>
         <button id="watchBtn">선택 종목 보기</button>
+        <button id="openStockModal">차트/호가 열기</button>
         <div class="sub" id="selected">선택: 0009K0</div>
       </div>
       <div class="sub" id="searchResults" style="margin-top:8px"></div>
@@ -61,17 +65,24 @@
       <div id="portfolio"></div>
     </div>
 
-    <div class="grid full">
-      <div class="card">
-        <h3 style="margin:0 0 8px">실시간 차트</h3>
-        <canvas id="chart" width="1200" height="300"></canvas>
-        <div class="sub" id="chartMeta">-</div>
-      </div>
-
-      <div class="card">
-        <h3 style="margin:0 0 8px">호가창 (토스형)</h3>
-        <div id="bookMeta" class="sub">-</div>
-        <div id="book"></div>
+    <div id="stockModal" class="modal">
+      <div class="modal-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <h3 style="margin:0">종목 상세 (차트/호가)</h3>
+          <button id="closeStockModal">닫기</button>
+        </div>
+        <div class="grid">
+          <div class="card">
+            <h3 style="margin:0 0 8px">실시간 차트</h3>
+            <canvas id="chart" width="1200" height="300"></canvas>
+            <div class="sub" id="chartMeta">-</div>
+          </div>
+          <div class="card">
+            <h3 style="margin:0 0 8px">호가창 (토스형)</h3>
+            <div id="bookMeta" class="sub">-</div>
+            <div id="book"></div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -80,6 +91,7 @@
         <div class="tabs">
           <button class="tab on" data-tab="news">확정 뉴스</button>
           <button class="tab" data-tab="intel">월드 인텔</button>
+          <button class="tab" data-tab="live">유튜브 라이브 뉴스</button>
           <button class="tab" data-tab="community">종토방/커뮤(미확인)</button>
           <button class="tab" data-tab="war">전쟁/지정학</button>
           <button class="tab" data-tab="market">글로벌 마켓</button>
@@ -87,6 +99,7 @@
 
         <div class="panel on list" id="panel-news"></div>
         <div class="panel list" id="panel-intel"></div>
+        <div class="panel list" id="panel-live"></div>
         <div class="panel list" id="panel-community"></div>
         <div class="panel list" id="panel-war"></div>
         <div class="panel list" id="panel-market"></div>
@@ -210,6 +223,17 @@ async function loadIntel(){
   el.innerHTML=j.items.slice(0,12).map(x=>`<div class='item'><span class='badge'>${x.source}</span><a href='${x.link}' target='_blank'>${x.title}</a></div>`).join('');
 }
 
+function loadLiveNews(){
+  const channels = [
+    { name:'연합뉴스TV', channelId:'UCsU-I-vHLiaMfV_ceaYz5rQ' },
+    { name:'YTN', channelId:'UCYfdidRxbB8Qhf0Nx7ioOYw' },
+    { name:'Reuters', channelId:'UCVdLtyA4N4Wt3U8YhRPQpWw' },
+    { name:'Bloomberg', channelId:'UCIALMKvObZNtJ6AmdCLP7Lg' }
+  ];
+  const el=document.getElementById('panel-live');
+  el.innerHTML = channels.map(c=>`<div class='item'><span class='badge'>LIVE</span><b>${c.name}</b><div style='margin-top:6px'><iframe width='100%' height='260' src='https://www.youtube.com/embed/live_stream?channel=${c.channelId}&autoplay=0&mute=1' title='${c.name}' frameborder='0' allow='autoplay; encrypted-media; picture-in-picture' allowfullscreen></iframe></div></div>`).join('');
+}
+
 async function loadCommunity(){
   const j=await fetch(`/api/community?symbol=${symbol}`).then(r=>r.json());
   const el=document.getElementById('panel-community');
@@ -280,9 +304,12 @@ for (const b of document.querySelectorAll('.tab')) b.onclick=()=>{
 
 document.getElementById('searchBtn').onclick=search;
 document.getElementById('watchBtn').onclick=()=>{loadSnapshot();loadChart();loadPortfolio();loadCommunity();};
+document.getElementById('openStockModal').onclick=()=>{document.getElementById('stockModal').classList.add('on');};
+document.getElementById('closeStockModal').onclick=()=>{document.getElementById('stockModal').classList.remove('on');};
+document.getElementById('stockModal').onclick=(e)=>{if(e.target.id==='stockModal') document.getElementById('stockModal').classList.remove('on');};
 
 search();
-loadSnapshot(); loadChart(); loadPortfolio(); loadNews(); loadIntel(); loadCommunity(); loadMarkets(); loadMarketHistory();
+loadSnapshot(); loadChart(); loadPortfolio(); loadNews(); loadIntel(); loadLiveNews(); loadCommunity(); loadMarkets(); loadMarketHistory();
 setInterval(loadSnapshot, 800);
 setInterval(loadChart, 2000);
 setInterval(loadPortfolio, 5000);
