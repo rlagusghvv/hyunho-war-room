@@ -212,25 +212,37 @@ async function loadCommunity(){
   el.innerHTML=j.items.slice(0,8).map(x=>`<div class='item'><span class='badge'>미확인</span><a href='${x.link}' target='_blank'>${x.title}</a></div>`).join('');
 }
 
-function drawIndexChart(rows){
+function drawIndexChart(series){
   const c=document.getElementById('idxChart'), ctx=c.getContext('2d');
   ctx.clearRect(0,0,c.width,c.height);
-  if(!rows?.length) return;
-  const vals=rows.map(x=>x.close).filter(Boolean); if(!vals.length) return;
-  const min=Math.min(...vals), max=Math.max(...vals), pad=20;
-  const y=v=>(c.height-pad)-((v-min)/(Math.max(1,max-min)))*(c.height-pad*2);
+  const keys=['KOSPI','S&P500','NASDAQ100','GOLD','WTI','NATGAS','SILVER','COPPER'];
+  const present=keys.filter(k=>series?.[k]?.length);
+  if(!present.length) return;
+  const pad=20;
   ctx.strokeStyle='#1f2937'; ctx.strokeRect(0,0,c.width,c.height);
-  ctx.strokeStyle='#a78bfa'; ctx.lineWidth=2; ctx.beginPath();
-  rows.forEach((r,i)=>{const x=pad+i*(c.width-pad*2)/Math.max(1,rows.length-1); const yy=y(r.close); if(i===0) ctx.moveTo(x,yy); else ctx.lineTo(x,yy);});
-  ctx.stroke();
+  const colors={KOSPI:'#a78bfa','S&P500':'#60a5fa','NASDAQ100':'#22c55e',GOLD:'#fbbf24',WTI:'#ef4444',NATGAS:'#06b6d4',SILVER:'#cbd5e1',COPPER:'#f97316'};
+
+  // normalize each series to index 100 for overlay readability
+  for(const k of present){
+    const rows=series[k].slice(-60);
+    const base=rows[0]?.close || 1;
+    const vals=rows.map(r=> (r.close/base)*100);
+    const min=Math.min(...vals), max=Math.max(...vals);
+    const y=v=>(c.height-pad)-((v-(min-2))/(Math.max(1,(max+2)-(min-2))))*(c.height-pad*2);
+    ctx.strokeStyle=colors[k]||'#93c5fd'; ctx.lineWidth=1.8; ctx.beginPath();
+    vals.forEach((v,i)=>{const x=pad+i*(c.width-pad*2)/Math.max(1,vals.length-1); const yy=y(v); if(i===0)ctx.moveTo(x,yy); else ctx.lineTo(x,yy);});
+    ctx.stroke();
+  }
+
   ctx.fillStyle='#9ca3af'; ctx.font='12px sans-serif';
-  ctx.fillText(`KOSPI 최근 ${rows.length}일 · ${fmt(vals.at(-1))}`,10,16);
-  document.getElementById('idxMeta').textContent=`지수 범위 ${fmt(min)}~${fmt(max)} · 업데이트 ${new Date().toLocaleTimeString('ko-KR')}`;
+  ctx.fillText('주요지수/원자재 (60일, 시작값=100 정규화)',10,16);
+  const legend=present.map(k=>`${k}`).join(' · ');
+  document.getElementById('idxMeta').textContent=`${legend} · 업데이트 ${new Date().toLocaleTimeString('ko-KR')}`;
 }
 
 async function loadMarketHistory(){
-  const j=await fetch('/api/market-history?symbol=%5Ekospi').then(r=>r.json());
-  if(j.ok) drawIndexChart((j.data||[]).slice(-60));
+  const j=await fetch('/api/macro-history').then(r=>r.json());
+  if(j.ok) drawIndexChart(j.series||{});
 }
 
 async function loadMarkets(){

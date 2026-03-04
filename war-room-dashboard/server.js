@@ -134,8 +134,8 @@ app.get('/api/community', async (req, res) => {
 
 app.get('/api/markets', async (_req, res) => {
   try {
-    const symbols = ['^kospi', '^hsi', '^spx', '^ndq', '^dji', 'cl.f', 'gc.f', 'btcusd'];
-    const names = { '^kospi':'KOSPI', '^hsi':'HSI', '^spx': 'S&P500', '^ndq': 'NASDAQ100', '^dji': 'DOW', 'cl.f': 'WTI', 'gc.f': 'GOLD', 'btcusd': 'BTC' };
+    const symbols = ['^kospi', '^spx', '^ndq', '^dji', 'cl.f', 'gc.f', 'ng.f', 'si.f', 'hg.f', 'btcusd'];
+    const names = { '^kospi':'KOSPI', '^spx': 'S&P500', '^ndq': 'NASDAQ100', '^dji': 'DOW', 'cl.f': 'WTI', 'gc.f': 'GOLD', 'ng.f':'NATGAS', 'si.f':'SILVER', 'hg.f':'COPPER', 'btcusd': 'BTC' };
     const out = [];
     for (const s of symbols) {
       const u = `https://stooq.com/q/l/?s=${encodeURIComponent(s)}&f=sd2t2ohlcv&h&e=csv`;
@@ -162,6 +162,34 @@ app.get('/api/market-history', async (req, res) => {
       return { date, open: Number(open || 0), high: Number(high || 0), low: Number(low || 0), close: Number(close || 0), volume: Number(volume || 0) };
     });
     res.json({ ok: true, updatedAt: new Date().toISOString(), symbol, data: rows });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+app.get('/api/macro-history', async (_req, res) => {
+  try {
+    const targets = [
+      { s: '^kospi', n: 'KOSPI' },
+      { s: '^spx', n: 'S&P500' },
+      { s: '^ndq', n: 'NASDAQ100' },
+      { s: 'gc.f', n: 'GOLD' },
+      { s: 'cl.f', n: 'WTI' },
+      { s: 'ng.f', n: 'NATGAS' },
+      { s: 'si.f', n: 'SILVER' },
+      { s: 'hg.f', n: 'COPPER' }
+    ];
+    const series = {};
+    for (const t of targets) {
+      const u = `https://stooq.com/q/d/l/?s=${encodeURIComponent(t.s)}&i=d`;
+      const txt = await fetch(u, { headers: { 'user-agent': 'Mozilla/5.0' } }).then((r) => r.text());
+      const lines = txt.trim().split('\n').slice(1).filter(Boolean).slice(-90);
+      series[t.n] = lines.map((ln) => {
+        const [date, open, high, low, close, volume] = ln.split(',');
+        return { date, open: Number(open || 0), high: Number(high || 0), low: Number(low || 0), close: Number(close || 0), volume: Number(volume || 0) };
+      }).filter((x) => Number.isFinite(x.close) && x.close > 0);
+    }
+    res.json({ ok: true, updatedAt: new Date().toISOString(), series });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
