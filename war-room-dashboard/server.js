@@ -9,6 +9,33 @@ const PORT = process.env.PORT || 4177;
 const KIS_DIR = process.env.KIS_DIR || __dirname;
 const marketCache = new Map();
 
+const gfMap = {
+  '^spx': 'https://www.google.com/finance/quote/.INX:INDEXSP',
+  '^ndq': 'https://www.google.com/finance/quote/NDX:INDEXNASDAQ',
+  '^dji': 'https://www.google.com/finance/quote/.DJI:INDEXDJX',
+  'usdkrw': 'https://www.google.com/finance/quote/USD-KRW',
+  'cl.f': 'https://www.google.com/finance/quote/CLW00:NYMEX',
+  'gc.f': 'https://www.google.com/finance/quote/GCW00:COMEX',
+  'ng.f': 'https://www.google.com/finance/quote/NGW00:NYMEX',
+  'si.f': 'https://www.google.com/finance/quote/SIW00:COMEX',
+  'hg.f': 'https://www.google.com/finance/quote/HGW00:COMEX',
+  'btcusd': 'https://www.google.com/finance/quote/BTC-USD'
+};
+
+async function fetchGooglePrice(symbol) {
+  const u = gfMap[symbol];
+  if (!u) return null;
+  try {
+    const html = await fetch(u, { headers: { 'user-agent': 'Mozilla/5.0' } }).then((r) => r.text());
+    const m = html.match(/data-last-price="([0-9.\-]+)"/);
+    if (!m) return null;
+    const v = Number(m[1]);
+    return Number.isFinite(v) && v > 0 ? v : null;
+  } catch {
+    return null;
+  }
+}
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 function runNode(code, cwd, timeout = 15000) {
@@ -147,10 +174,13 @@ app.get('/api/markets', async (_req, res) => {
       let o = Number(open), c = Number(close), h = Number(high), l = Number(low);
       const key = names[s] || symbol;
       const prev = marketCache.get(key);
-      const valid = Number.isFinite(c) && c > 0;
+      let valid = Number.isFinite(c) && c > 0;
       if (!valid && prev) {
         ({ open: o, close: c, high: h, low: l } = prev);
-      } else if (!valid && !prev) {
+        valid = true;
+      }
+      if (!valid) {
+        // fallback 1: historical daily close
         try {
           const hu = `https://stooq.com/q/d/l/?s=${encodeURIComponent(s)}&i=d`;
           const htxt = await fetch(hu, { headers: { 'user-agent': 'Mozilla/5.0' } }).then((r) => r.text());
@@ -158,11 +188,23 @@ app.get('/api/markets', async (_req, res) => {
           const last = (hlines[hlines.length - 1] || '').split(',');
           const [, ho, hh, hl, hc] = last;
           o = Number(ho); h = Number(hh); l = Number(hl); c = Number(hc);
+          valid = Number.isFinite(c) && c > 0;
         } catch {}
+      }
+      if (!valid) {
+        // fallback 2: Google Finance scrape (free)
+        const gp = await fetchGooglePrice(s);
+        if (gp) {
+          c = gp;
+          if (!Number.isFinite(o)) o = gp;
+          if (!Number.isFinite(h)) h = gp;
+          if (!Number.isFinite(l)) l = gp;
+          valid = true;
+        }
       }
       const chg = Number.isFinite(o) && Number.isFinite(c) ? c - o : null;
       const pct = Number.isFinite(o) && o !== 0 && Number.isFinite(c) ? (chg / o) * 100 : null;
-      const item = { symbol: key, rawSymbol: s, date, time, open: Number.isFinite(o)?o:null, high: Number.isFinite(h)?h:null, low: Number.isFinite(l)?l:null, close: Number.isFinite(c)?c:null, chg, pct, stale: !valid };
+      const item = { symbol: key, rawSymbol: s, date, time, open: Number.isFinite(o)?o:null, high: Number.isFinite(h)?h:null, low: Number.isFinite(l)?l:null, close: Number.isFinite(c)?c:null, chg, pct, stale: !((Number.isFinite(Number(close)) && Number(close)>0)) };
       out.push(item);
       if (valid) marketCache.set(key, item);
     }
