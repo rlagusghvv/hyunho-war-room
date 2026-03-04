@@ -270,11 +270,32 @@ async function loadLiveNews(){
   const channels = j.items || [];
   const btns = channels.map((c,i)=>`<button class='${i===0?'primary':''}' onclick='startLiveRelay("${c.id}","${c.name}")'>${c.name}</button>`).join(' ');
   el.innerHTML = `
-    <div class='item sub'>페이지 내 통합 재생: 서버가 라이브를 HLS로 중계합니다. (초기 5~15초 준비 시간)</div>
+    <div class='item sub'>유튜브 정책 이슈가 있어 2개 모드를 제공합니다: ①공식 유튜브 인앱(iframe) ②서버 중계(HLS).</div>
+    <div class='item'>
+      <input id='ytUrlInput' style='min-width:320px' value='https://www.youtube.com/watch?v=LH77lflaM5w' />
+      <button class='primary' onclick='openYoutubeEmbed()'>공식 유튜브 인앱 열기</button>
+    </div>
+    <div class='item'>
+      <div class='sub' id='ytEmbedMeta'>공식 인앱 플레이어</div>
+      <iframe id='ytEmbedFrame' class='video-player' src='https://www.youtube.com/embed/LH77lflaM5w?autoplay=1&mute=1&playsinline=1' allow='autoplay; encrypted-media; picture-in-picture' allowfullscreen></iframe>
+    </div>
+    <hr style='border-color:#1f2937;opacity:.4'/>
+    <div class='item sub'>중계 모드(필요시): 페이지 내 HLS 재생</div>
     <div class='item'>${btns}</div>
     <div class='item'><div class='sub' id='liveMeta'>채널 선택 후 시작</div><video id='liveVideo' class='video-player' controls autoplay muted playsinline></video></div>
   `;
 }
+
+window.openYoutubeEmbed=()=>{
+  const raw=(document.getElementById('ytUrlInput')?.value||'').trim();
+  const m=raw.match(/(?:v=|\/embed\/|\.be\/)([A-Za-z0-9_-]{11})/);
+  const id=m?m[1]:null;
+  if(!id){ alert('유효한 유튜브 URL/ID를 넣어줘'); return; }
+  const f=document.getElementById('ytEmbedFrame');
+  if(f) f.src=`https://www.youtube.com/embed/${id}?autoplay=1&mute=1&playsinline=1`;
+  const meta=document.getElementById('ytEmbedMeta');
+  if(meta) meta.textContent=`공식 인앱 플레이어: ${id}`;
+};
 
 window.startLiveRelay = async (id,name)=>{
   const meta=document.getElementById('liveMeta');
