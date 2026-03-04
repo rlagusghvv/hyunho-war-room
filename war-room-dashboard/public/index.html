@@ -52,7 +52,6 @@
         <input id="q" placeholder="종목명/코드 검색" value="에임드바이오"/>
         <button class="primary" id="searchBtn">검색</button>
         <button id="watchBtn">선택 종목 보기</button>
-        <button id="openStockModal">차트/호가 열기</button>
         <div class="sub" id="selected">선택: 0009K0</div>
       </div>
       <div class="sub" id="searchResults" style="margin-top:8px"></div>
@@ -60,9 +59,21 @@
 
     <div class="card full topbar" id="topbar"></div>
 
-    <div class="card full">
-      <h3 style="margin:0 0 8px">메인 매크로 보드 (라이브)</h3>
-      <div id="macroMain" class="macro-grid"></div>
+    <div class="grid full">
+      <div class="card">
+        <h3 style="margin:0 0 8px">종목 실시간 차트</h3>
+        <canvas id="chart" width="1200" height="300"></canvas>
+        <div class="sub" id="chartMeta">-</div>
+      </div>
+      <div class="card">
+        <h3 style="margin:0 0 8px">호가창 + 액션 신호</h3>
+        <div id="bookMeta" class="sub">-</div>
+        <div id="book"></div>
+        <hr style="border-color:#1f2937;opacity:.4"/>
+        <div class="signal" id="signal">[대기]</div>
+        <div class="sub" id="signalRange">예상 범위: -</div>
+        <div id="signalReasons" class="sub" style="margin-top:8px"></div>
+      </div>
     </div>
 
     <div class="card full">
@@ -71,33 +82,18 @@
       <div id="portfolio"></div>
     </div>
 
-    <div id="stockModal" class="modal">
-      <div class="modal-card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <h3 style="margin:0">종목 상세 (차트/호가)</h3>
-          <button id="closeStockModal">닫기</button>
-        </div>
-        <div class="grid">
-          <div class="card">
-            <h3 style="margin:0 0 8px">실시간 차트</h3>
-            <canvas id="chart" width="1200" height="300"></canvas>
-            <div class="sub" id="chartMeta">-</div>
-          </div>
-          <div class="card">
-            <h3 style="margin:0 0 8px">호가창 (토스형)</h3>
-            <div id="bookMeta" class="sub">-</div>
-            <div id="book"></div>
-          </div>
-        </div>
-      </div>
+    <div class="card full">
+      <h3 style="margin:0 0 8px">메인 매크로 보드 (라이브)</h3>
+      <div id="macroMain" class="macro-grid"></div>
+      <div style="margin-top:10px" class="chip" id="macroDecision">매크로 진단 로딩중...</div>
     </div>
 
     <div class="grid full">
       <div class="card">
+        <h3 style="margin:0 0 8px">뉴스 섹션</h3>
         <div class="tabs">
           <button class="tab on" data-tab="news">확정 뉴스</button>
           <button class="tab" data-tab="intel">월드 인텔</button>
-          <button class="tab" data-tab="live">유튜브 라이브 뉴스</button>
           <button class="tab" data-tab="community">종토방/커뮤(미확인)</button>
           <button class="tab" data-tab="war">전쟁/지정학</button>
           <button class="tab" data-tab="market">글로벌 마켓</button>
@@ -105,21 +101,18 @@
 
         <div class="panel on list" id="panel-news"></div>
         <div class="panel list" id="panel-intel"></div>
-        <div class="panel list" id="panel-live"></div>
         <div class="panel list" id="panel-community"></div>
         <div class="panel list" id="panel-war"></div>
         <div class="panel list" id="panel-market"></div>
       </div>
 
       <div class="card">
-        <h3 style="margin:0 0 8px">장 상황 (지수 흐름 + 액션)</h3>
+        <h3 style="margin:0 0 8px">라이브 뉴스 화면</h3>
+        <div id="panel-live" class="list"></div>
+        <hr style="border-color:#1f2937;opacity:.4"/>
+        <h3 style="margin:0 0 8px">장 상황 (지수 흐름)</h3>
         <canvas id="idxChart" width="900" height="180"></canvas>
         <div class="sub" id="idxMeta">-</div>
-        <hr style="border-color:#1f2937;opacity:.4"/>
-        <div class="signal" id="signal">[대기]</div>
-        <div class="sub" id="signalRange">예상 범위: -</div>
-        <div id="signalReasons" class="sub" style="margin-top:8px"></div>
-        <div style="margin-top:10px" class="chip" id="macroDecision">매크로 진단 로딩중...</div>
       </div>
     </div>
   </div>
@@ -387,9 +380,6 @@ for (const b of document.querySelectorAll('.tab')) b.onclick=()=>{
 
 document.getElementById('searchBtn').onclick=search;
 document.getElementById('watchBtn').onclick=()=>{loadSnapshot();loadChart();loadPortfolio();loadCommunity();};
-document.getElementById('openStockModal').onclick=()=>{document.getElementById('stockModal').classList.add('on');};
-document.getElementById('closeStockModal').onclick=()=>{document.getElementById('stockModal').classList.remove('on');};
-document.getElementById('stockModal').onclick=(e)=>{if(e.target.id==='stockModal') document.getElementById('stockModal').classList.remove('on');};
 
 search();
 loadSnapshot(); loadChart(); loadPortfolio(); loadNews(); loadIntel(); loadLiveNews(); loadCommunity(); loadMarkets(); loadMarketHistory();
