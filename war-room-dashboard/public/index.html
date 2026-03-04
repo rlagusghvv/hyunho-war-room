@@ -233,7 +233,18 @@ function loadLiveNews(){
     { name:'Bloomberg', channelId:'UCIALMKvObZNtJ6AmdCLP7Lg' }
   ];
   const el=document.getElementById('panel-live');
-  el.innerHTML = channels.map(c=>`<div class='item'><span class='badge'>LIVE</span><b>${c.name}</b><div style='margin-top:6px'><iframe width='100%' height='260' src='https://www.youtube.com/embed/live_stream?channel=${c.channelId}&autoplay=0&mute=1' title='${c.name}' frameborder='0' allow='autoplay; encrypted-media; picture-in-picture' allowfullscreen></iframe></div></div>`).join('');
+  el.innerHTML = `
+    <div class='item sub'>일부 채널은 보안정책으로 사이트 내 임베드 재생이 차단됩니다. 아래 버튼으로 YouTube에서 직접 열면 정상 재생/미니플레이어(PiP) 사용이 가능합니다.</div>
+    ${channels.map(c=>`
+      <div class='item'>
+        <span class='badge'>LIVE</span><b>${c.name}</b>
+        <div style='margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;'>
+          <a href='https://www.youtube.com/channel/${c.channelId}/live' target='_blank'><button>유튜브에서 열기</button></a>
+          <a href='https://www.youtube.com/watch?v=live_stream&channel=${c.channelId}' target='_blank'><button>라이브 링크 열기</button></a>
+        </div>
+      </div>
+    `).join('')}
+  `;
 }
 
 async function loadCommunity(){
