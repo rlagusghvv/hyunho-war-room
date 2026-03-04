@@ -134,8 +134,8 @@ app.get('/api/community', async (req, res) => {
 
 app.get('/api/markets', async (_req, res) => {
   try {
-    const symbols = ['^spx', '^ndq', '^dji', 'cl.f', 'gc.f', 'btcusd'];
-    const names = { '^spx': 'S&P500', '^ndq': 'NASDAQ100', '^dji': 'DOW', 'cl.f': 'WTI', 'gc.f': 'GOLD', 'btcusd': 'BTC' };
+    const symbols = ['^kospi', '^hsi', '^spx', '^ndq', '^dji', 'cl.f', 'gc.f', 'btcusd'];
+    const names = { '^kospi':'KOSPI', '^hsi':'HSI', '^spx': 'S&P500', '^ndq': 'NASDAQ100', '^dji': 'DOW', 'cl.f': 'WTI', 'gc.f': 'GOLD', 'btcusd': 'BTC' };
     const out = [];
     for (const s of symbols) {
       const u = `https://stooq.com/q/l/?s=${encodeURIComponent(s)}&f=sd2t2ohlcv&h&e=csv`;
@@ -162,6 +162,31 @@ app.get('/api/market-history', async (req, res) => {
       return { date, open: Number(open || 0), high: Number(high || 0), low: Number(low || 0), close: Number(close || 0), volume: Number(volume || 0) };
     });
     res.json({ ok: true, updatedAt: new Date().toISOString(), symbol, data: rows });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+app.get('/api/intel', async (_req, res) => {
+  try {
+    const feeds = [
+      { url: 'https://www.yna.co.kr/rss/economy.xml', tag: 'KR-경제' },
+      { url: 'https://www.mk.co.kr/rss/30000001/', tag: 'KR-종합' },
+      { url: 'https://www.who.int/rss-feeds/news-english.xml', tag: 'WHO' },
+      { url: 'https://travel.state.gov/_res/rss/TAsTWs.xml', tag: 'US-Travel' },
+      { url: 'https://www.safetravel.govt.nz/news/feed', tag: 'NZ-Travel' }
+    ];
+    const items = [];
+    for (const f of feeds) {
+      try {
+        const feed = await parser.parseURL(f.url);
+        for (const it of (feed.items || []).slice(0, 4)) {
+          items.push({ title: it.title, link: it.link, pubDate: it.pubDate, source: f.tag });
+        }
+      } catch {}
+    }
+    items.sort((a, b) => new Date(b.pubDate || 0) - new Date(a.pubDate || 0));
+    res.json({ ok: true, updatedAt: new Date().toISOString(), items: items.slice(0, 20) });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }

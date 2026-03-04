@@ -74,12 +74,14 @@
       <div class="card">
         <div class="tabs">
           <button class="tab on" data-tab="news">확정 뉴스</button>
+          <button class="tab" data-tab="intel">월드 인텔</button>
           <button class="tab" data-tab="community">종토방/커뮤(미확인)</button>
           <button class="tab" data-tab="war">전쟁/지정학</button>
           <button class="tab" data-tab="market">글로벌 마켓</button>
         </div>
 
         <div class="panel on list" id="panel-news"></div>
+        <div class="panel list" id="panel-intel"></div>
         <div class="panel list" id="panel-community"></div>
         <div class="panel list" id="panel-war"></div>
         <div class="panel list" id="panel-market"></div>
@@ -192,6 +194,13 @@ async function loadNews(){
   document.getElementById('panel-war').innerHTML=j.items.slice(0,8).map(x=>`<div class='item'><span class='badge'>${x.source}</span><a href='${x.link}' target='_blank'>${x.title}</a></div>`).join('');
 }
 
+async function loadIntel(){
+  const j=await fetch('/api/intel').then(r=>r.json());
+  const el=document.getElementById('panel-intel');
+  if(!j.ok) return el.innerHTML=`<div class='item'>인텔 로드 실패: ${j.error}</div>`;
+  el.innerHTML=j.items.slice(0,12).map(x=>`<div class='item'><span class='badge'>${x.source}</span><a href='${x.link}' target='_blank'>${x.title}</a></div>`).join('');
+}
+
 async function loadCommunity(){
   const j=await fetch(`/api/community?symbol=${symbol}`).then(r=>r.json());
   const el=document.getElementById('panel-community');
@@ -211,12 +220,12 @@ function drawIndexChart(rows){
   rows.forEach((r,i)=>{const x=pad+i*(c.width-pad*2)/Math.max(1,rows.length-1); const yy=y(r.close); if(i===0) ctx.moveTo(x,yy); else ctx.lineTo(x,yy);});
   ctx.stroke();
   ctx.fillStyle='#9ca3af'; ctx.font='12px sans-serif';
-  ctx.fillText(`S&P500 최근 ${rows.length}일 · ${fmt(vals.at(-1))}`,10,16);
+  ctx.fillText(`KOSPI 최근 ${rows.length}일 · ${fmt(vals.at(-1))}`,10,16);
   document.getElementById('idxMeta').textContent=`지수 범위 ${fmt(min)}~${fmt(max)} · 업데이트 ${new Date().toLocaleTimeString('ko-KR')}`;
 }
 
 async function loadMarketHistory(){
-  const j=await fetch('/api/market-history?symbol=%5Espx').then(r=>r.json());
+  const j=await fetch('/api/market-history?symbol=%5Ekospi').then(r=>r.json());
   if(j.ok) drawIndexChart((j.data||[]).slice(-60));
 }
 
@@ -244,11 +253,12 @@ document.getElementById('searchBtn').onclick=search;
 document.getElementById('watchBtn').onclick=()=>{loadSnapshot();loadChart();loadPortfolio();loadCommunity();};
 
 search();
-loadSnapshot(); loadChart(); loadPortfolio(); loadNews(); loadCommunity(); loadMarkets(); loadMarketHistory();
+loadSnapshot(); loadChart(); loadPortfolio(); loadNews(); loadIntel(); loadCommunity(); loadMarkets(); loadMarketHistory();
 setInterval(loadSnapshot, 800);
 setInterval(loadChart, 2000);
 setInterval(loadPortfolio, 5000);
 setInterval(loadNews, 20000);
+setInterval(loadIntel, 30000);
 setInterval(loadCommunity, 30000);
 setInterval(loadMarkets, 30000);
 setInterval(loadMarketHistory, 60000);
