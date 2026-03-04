@@ -166,6 +166,24 @@ app.get('/api/markets', async (_req, res) => {
       out.push(item);
       if (valid) marketCache.set(key, item);
     }
+
+    // Prefer KIS for KR indexes (KOSPI/KOSDAQ) when available
+    try {
+      const kr = await new Promise((resolve, reject) => {
+        execFile('node', ['kis_bridge.mjs', 'kr-indexes'], { cwd: KIS_DIR, timeout: 12000 }, (err, stdout, stderr) => {
+          if (err) return reject(new Error(stderr || err.message));
+          resolve(JSON.parse((stdout || '').toString().trim()));
+        });
+      });
+      const map = new Map(out.map((x) => [x.symbol, x]));
+      for (const it of kr) map.set(it.symbol, it);
+      if (!map.has('KOSDAQ')) map.set('KOSDAQ', { symbol:'KOSDAQ', rawSymbol:'1001', open:null, high:null, low:null, close:null, chg:null, pct:null, stale:true });
+      res.json({ ok: true, updatedAt: new Date().toISOString(), items: Array.from(map.values()) });
+      return;
+    } catch {}
+
+    // fallback to free-source only
+    if (!out.some((x) => x.symbol === 'KOSDAQ')) out.push({ symbol:'KOSDAQ', rawSymbol:'1001', open:null, high:null, low:null, close:null, chg:null, pct:null, stale:true });
     res.json({ ok: true, updatedAt: new Date().toISOString(), items: out });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
@@ -211,6 +229,22 @@ app.get('/api/macro-history', async (_req, res) => {
         return { date, open: Number(open || 0), high: Number(high || 0), low: Number(low || 0), close: Number(close || 0), volume: Number(volume || 0) };
       }).filter((x) => Number.isFinite(x.close) && x.close > 0);
     }
+
+    // Prefer KIS history for KR indexes when available
+    try {
+      const krSeries = await new Promise((resolve, reject) => {
+        execFile('node', ['kis_bridge.mjs', 'kr-history'], { cwd: KIS_DIR, timeout: 15000 }, (err, stdout, stderr) => {
+          if (err) return reject(new Error(stderr || err.message));
+          resolve(JSON.parse((stdout || '').toString().trim()));
+        });
+      });
+      if (krSeries.KOSPI?.length) series.KOSPI = krSeries.KOSPI;
+      if (krSeries.KOSDAQ?.length) series.KOSDAQ = krSeries.KOSDAQ;
+      else if (!series.KOSDAQ) series.KOSDAQ = [];
+    } catch {
+      if (!series.KOSDAQ) series.KOSDAQ = [];
+    }
+
     res.json({ ok: true, updatedAt: new Date().toISOString(), series });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });

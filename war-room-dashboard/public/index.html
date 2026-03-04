@@ -258,12 +258,12 @@ async function loadCommunity(){
 function drawIndexChart(series){
   const c=document.getElementById('idxChart'), ctx=c.getContext('2d');
   ctx.clearRect(0,0,c.width,c.height);
-  const keys=['KOSPI','S&P500','NASDAQ100','USDKRW','GOLD','WTI','NATGAS','SILVER','COPPER'];
+  const keys=['KOSPI','KOSDAQ','S&P500','NASDAQ100','USDKRW','GOLD','WTI','NATGAS','SILVER','COPPER'];
   const present=keys.filter(k=>series?.[k]?.length);
   if(!present.length) return;
   const pad=20;
   ctx.strokeStyle='#1f2937'; ctx.strokeRect(0,0,c.width,c.height);
-  const colors={KOSPI:'#a78bfa','S&P500':'#60a5fa','NASDAQ100':'#22c55e','USDKRW':'#f43f5e',GOLD:'#fbbf24',WTI:'#ef4444',NATGAS:'#06b6d4',SILVER:'#cbd5e1',COPPER:'#f97316'};
+  const colors={KOSPI:'#a78bfa',KOSDAQ:'#14b8a6','S&P500':'#60a5fa','NASDAQ100':'#22c55e','USDKRW':'#f43f5e',GOLD:'#fbbf24',WTI:'#ef4444',NATGAS:'#06b6d4',SILVER:'#cbd5e1',COPPER:'#f97316'};
 
   // normalize each series to index 100 for overlay readability
   for(const k of present){
@@ -312,7 +312,7 @@ async function loadMarkets(){
     main.innerHTML='';
     return;
   }
-  const focus=['KOSPI','S&P500','NASDAQ100','DOW','USDKRW','WTI','GOLD','NATGAS','SILVER','COPPER'];
+  const focus=['KOSPI','KOSDAQ','S&P500','NASDAQ100','DOW','USDKRW','WTI','GOLD','NATGAS','SILVER','COPPER'];
   const sorted=[...j.items].sort((a,b)=>focus.indexOf(a.symbol)-focus.indexOf(b.symbol));
   el.innerHTML=sorted.map(m=>{
     const fallbackClose = (macroSeries[m.symbol]||[]).slice(-1)[0]?.close;

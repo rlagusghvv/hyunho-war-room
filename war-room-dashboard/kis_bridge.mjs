@@ -108,6 +108,56 @@ async function chart(symbol){
   return rows.slice(-120);
 }
 
+async function krIndexes(){
+  const pairs = [
+    { code: '0001', name: 'KOSPI' },
+    { code: '1001', name: 'KOSDAQ' }
+  ];
+  const out = [];
+  for (const p of pairs) {
+    const r = await kisRequest({
+      path:'/uapi/domestic-stock/v1/quotations/inquire-index-tickprice',
+      tr_id:'FHPUP02100000',
+      params:{ FID_COND_MRKT_DIV_CODE:'U', FID_INPUT_ISCD:p.code }
+    });
+    const o = r.output || {};
+    const close = Number(o.bstp_nmix_prpr||0);
+    const open = Number(o.bstp_nmix_oprc||0);
+    const high = Number(o.bstp_nmix_hgpr||0);
+    const low = Number(o.bstp_nmix_lwpr||0);
+    const chg = Number(o.bstp_nmix_prdy_vrss||0);
+    const pct = Number(o.bstp_nmix_prdy_ctrt||0);
+    out.push({ symbol:p.name, rawSymbol:p.code, open, high, low, close, chg, pct, stale:false, source:'KIS' });
+  }
+  return out;
+}
+
+async function krIndexHistory(){
+  const d = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const dt = `${d.getUTCFullYear()}${String(d.getUTCMonth()+1).padStart(2,'0')}${String(d.getUTCDate()).padStart(2,'0')}`;
+  const pairs = [
+    { code: '0001', name: 'KOSPI' },
+    { code: '1001', name: 'KOSDAQ' }
+  ];
+  const series = {};
+  for (const p of pairs) {
+    const r = await kisRequest({
+      path:'/uapi/domestic-stock/v1/quotations/inquire-index-timeprice',
+      tr_id:'FHPUP02120000',
+      params:{ FID_COND_MRKT_DIV_CODE:'U', FID_INPUT_ISCD:p.code, FID_INPUT_HOUR_1:'1200', FID_INPUT_DATE_1:dt, FID_PERIOD_DIV_CODE:'1' }
+    });
+    series[p.name] = (r.output2 || []).slice(0, 100).reverse().map(x => ({
+      date: x.stck_bsop_date,
+      open: Number(x.bstp_nmix_oprc||0),
+      high: Number(x.bstp_nmix_hgpr||0),
+      low: Number(x.bstp_nmix_lwpr||0),
+      close: Number(x.bstp_nmix_prpr||0),
+      volume: Number(x.acml_vol||0)
+    })).filter(x=>x.close>0);
+  }
+  return series;
+}
+
 async function portfolio(){
   const CANO = process.env.KIS_CANO;
   const ACNT_PRDT_CD = process.env.KIS_ACNT_PRDT_CD || '01';
@@ -135,4 +185,6 @@ const symbol = (process.argv[3] || '0009K0').toUpperCase();
 if (mode === 'snapshot') console.log(JSON.stringify(await snapshot(symbol)));
 else if (mode === 'chart') console.log(JSON.stringify(await chart(symbol)));
 else if (mode === 'portfolio') console.log(JSON.stringify(await portfolio()));
-else throw new Error('mode: snapshot|chart|portfolio');
+else if (mode === 'kr-indexes') console.log(JSON.stringify(await krIndexes()));
+else if (mode === 'kr-history') console.log(JSON.stringify(await krIndexHistory()));
+else throw new Error('mode: snapshot|chart|portfolio|kr-indexes|kr-history');
