@@ -7,6 +7,7 @@ const app = express();
 const parser = new Parser();
 const PORT = process.env.PORT || 4177;
 const KIS_DIR = process.env.KIS_DIR || __dirname;
+const marketCache = new Map();
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -143,10 +144,18 @@ app.get('/api/markets', async (_req, res) => {
       const lines = txt.trim().split('\n');
       const row = (lines[1] || '').split(',');
       const [symbol, date, time, open, high, low, close] = row;
-      const o = Number(open || 0), c = Number(close || 0);
-      const chg = c - o;
-      const pct = o ? (chg / o) * 100 : 0;
-      out.push({ symbol: names[s] || symbol, rawSymbol: s, date, time, open: o, high: Number(high || 0), low: Number(low || 0), close: c, chg, pct });
+      let o = Number(open), c = Number(close), h = Number(high), l = Number(low);
+      const key = names[s] || symbol;
+      const prev = marketCache.get(key);
+      const valid = Number.isFinite(c) && c > 0;
+      if (!valid && prev) {
+        ({ open: o, close: c, high: h, low: l } = prev);
+      }
+      const chg = Number.isFinite(o) && Number.isFinite(c) ? c - o : null;
+      const pct = Number.isFinite(o) && o !== 0 && Number.isFinite(c) ? (chg / o) * 100 : null;
+      const item = { symbol: key, rawSymbol: s, date, time, open: Number.isFinite(o)?o:null, high: Number.isFinite(h)?h:null, low: Number.isFinite(l)?l:null, close: Number.isFinite(c)?c:null, chg, pct, stale: !valid };
+      out.push(item);
+      if (valid) marketCache.set(key, item);
     }
     res.json({ ok: true, updatedAt: new Date().toISOString(), items: out });
   } catch (e) {

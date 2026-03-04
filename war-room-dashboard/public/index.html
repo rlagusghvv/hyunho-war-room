@@ -120,7 +120,7 @@
   </div>
 
 <script>
-let symbol='0009K0', name='에임드바이오', snap=null, chart=[], portfolio=null, macroSeries={};
+let symbol='0009K0', name='에임드바이오', snap=null, chart=[], portfolio=null, macroSeries={}, lastMarkets={};
 const fmt=n=>Number(n||0).toLocaleString('ko-KR');
 
 function setTopbar(){
@@ -227,20 +227,21 @@ async function loadIntel(){
 
 function loadLiveNews(){
   const channels = [
-    { name:'연합뉴스TV', channelId:'UCsU-I-vHLiaMfV_ceaYz5rQ' },
-    { name:'YTN', channelId:'UCYfdidRxbB8Qhf0Nx7ioOYw' },
-    { name:'Reuters', channelId:'UCVdLtyA4N4Wt3U8YhRPQpWw' },
-    { name:'Bloomberg', channelId:'UCIALMKvObZNtJ6AmdCLP7Lg' }
+    { name:'YTN', liveUrl:'https://www.youtube.com/results?search_query=YTN+live' },
+    { name:'연합뉴스TV', liveUrl:'https://www.youtube.com/results?search_query=%EC%97%B0%ED%95%A9%EB%89%B4%EC%8A%A4TV+live' },
+    { name:'Reuters', liveUrl:'https://www.youtube.com/results?search_query=Reuters+live' },
+    { name:'Bloomberg', liveUrl:'https://www.youtube.com/@BloombergTelevision/live' },
+    { name:'Sky News', liveUrl:'https://www.youtube.com/@SkyNews/live' },
+    { name:'Al Jazeera', liveUrl:'https://www.youtube.com/@aljazeeraenglish/live' }
   ];
   const el=document.getElementById('panel-live');
   el.innerHTML = `
-    <div class='item sub'>일부 채널은 보안정책으로 사이트 내 임베드 재생이 차단됩니다. 아래 버튼으로 YouTube에서 직접 열면 정상 재생/미니플레이어(PiP) 사용이 가능합니다.</div>
+    <div class='item sub'>채널 정책으로 사이트 내 임베드가 막힐 수 있어요. 아래는 검증 가능한 라이브 열기 링크입니다(YouTube에서 PiP 가능).</div>
     ${channels.map(c=>`
       <div class='item'>
         <span class='badge'>LIVE</span><b>${c.name}</b>
         <div style='margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;'>
-          <a href='https://www.youtube.com/channel/${c.channelId}/live' target='_blank'><button>유튜브에서 열기</button></a>
-          <a href='https://www.youtube.com/watch?v=live_stream&channel=${c.channelId}' target='_blank'><button>라이브 링크 열기</button></a>
+          <a href='${c.liveUrl}' target='_blank'><button>${c.name} 라이브 열기</button></a>
         </div>
       </div>
     `).join('')}
@@ -313,16 +314,32 @@ async function loadMarkets(){
   }
   const focus=['KOSPI','S&P500','NASDAQ100','DOW','USDKRW','WTI','GOLD','NATGAS','SILVER','COPPER'];
   const sorted=[...j.items].sort((a,b)=>focus.indexOf(a.symbol)-focus.indexOf(b.symbol));
-  el.innerHTML=sorted.map(m=>`<div class='item'><b>${m.symbol}</b> ${fmt(m.close)} <span class='${m.pct>=0?'up':'dn'}'>${m.pct>=0?'+':''}${m.pct.toFixed(2)}%</span> <span class='sub'>(Δ ${m.chg>=0?'+':''}${fmt(Math.round(m.chg*100)/100)} | H:${fmt(m.high)} L:${fmt(m.low)})</span></div>`).join('');
+  el.innerHTML=sorted.map(m=>{
+    const fallbackClose = (macroSeries[m.symbol]||[]).slice(-1)[0]?.close;
+    let closeVal = (m.close===null || Number.isNaN(m.close)) ? fallbackClose : m.close;
+    if ((closeVal===null || closeVal===undefined || Number.isNaN(closeVal)) && lastMarkets[m.symbol]) closeVal = lastMarkets[m.symbol];
+    if (closeVal!==null && closeVal!==undefined && !Number.isNaN(closeVal)) lastMarkets[m.symbol] = closeVal;
+    const pctTxt = (m.pct===null || Number.isNaN(m.pct)) ? '--' : `${m.pct>=0?'+':''}${Number(m.pct).toFixed(2)}%`;
+    const chgTxt = (m.chg===null || Number.isNaN(m.chg)) ? '--' : `${m.chg>=0?'+':''}${fmt(Math.round(m.chg*100)/100)}`;
+    const pxTxt = (closeVal===null || Number.isNaN(closeVal) || closeVal===undefined) ? '--' : fmt(closeVal);
+    const cls = (m.pct===null || Number.isNaN(m.pct)) ? 'sub' : (m.pct>=0?'up':'dn');
+    return `<div class='item'><b>${m.symbol}</b> ${pxTxt} <span class='${cls}'>${pctTxt}</span> <span class='sub'>(Δ ${chgTxt} | H:${m.high==null?'--':fmt(m.high)} L:${m.low==null?'--':fmt(m.low)}) ${m.stale?'· 지연':''}</span></div>`;
+  }).join('');
 
   main.innerHTML=sorted.map(m=>{
     const s=(macroSeries[m.symbol]||[]).map(x=>x.close).filter(Boolean);
-    const color=m.pct>=0?'#22c55e':'#ef4444';
+    const fallbackClose = s.length ? s[s.length-1] : null;
+    let closeVal = (m.close===null || Number.isNaN(m.close)) ? fallbackClose : m.close;
+    if ((closeVal===null || closeVal===undefined || Number.isNaN(closeVal)) && lastMarkets[m.symbol]) closeVal = lastMarkets[m.symbol];
+    if (closeVal!==null && closeVal!==undefined && !Number.isNaN(closeVal)) lastMarkets[m.symbol] = closeVal;
+    const color=(m.pct===null || Number.isNaN(m.pct)) ? '#64748b' : (m.pct>=0?'#22c55e':'#ef4444');
+    const pxTxt=(closeVal===null || Number.isNaN(closeVal) || closeVal===undefined) ? '--' : fmt(closeVal);
+    const pctTxt=(m.pct===null || Number.isNaN(m.pct)) ? '--' : `${m.pct>=0?'+':''}${Number(m.pct).toFixed(2)}%`;
     return `<div class='idx-row'>
-      <div><b>${m.symbol}</b></div>
+      <div><b>${m.symbol}</b>${m.stale?" <span class='sub'>(지연)</span>":''}</div>
       <div>${sparklineSvg(s,color)}</div>
-      <div style='text-align:right'>${fmt(m.close)}</div>
-      <div class='${m.pct>=0?'up':'dn'}' style='text-align:right'>${m.pct>=0?'+':''}${m.pct.toFixed(2)}%</div>
+      <div style='text-align:right'>${pxTxt}</div>
+      <div class='${(m.pct===null || Number.isNaN(m.pct))?'sub':(m.pct>=0?'up':'dn')}' style='text-align:right'>${pctTxt}</div>
     </div>`;
   }).join('');
 }
@@ -354,8 +371,8 @@ setInterval(loadPortfolio, 5000);
 setInterval(loadNews, 20000);
 setInterval(loadIntel, 30000);
 setInterval(loadCommunity, 30000);
-setInterval(loadMarkets, 2000);
-setInterval(loadMarketHistory, 10000);
+setInterval(loadMarkets, 5000);
+setInterval(loadMarketHistory, 60000);
 </script>
 </body>
 </html>
