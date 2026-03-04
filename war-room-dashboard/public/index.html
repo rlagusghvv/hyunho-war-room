@@ -86,7 +86,10 @@
       </div>
 
       <div class="card">
-        <h3 style="margin:0 0 8px">액션 신호</h3>
+        <h3 style="margin:0 0 8px">장 상황 (지수 흐름 + 액션)</h3>
+        <canvas id="idxChart" width="900" height="180"></canvas>
+        <div class="sub" id="idxMeta">-</div>
+        <hr style="border-color:#1f2937;opacity:.4"/>
         <div class="signal" id="signal">[대기]</div>
         <div class="sub" id="signalRange">예상 범위: -</div>
         <div id="signalReasons" class="sub" style="margin-top:8px"></div>
@@ -196,6 +199,27 @@ async function loadCommunity(){
   el.innerHTML=j.items.slice(0,8).map(x=>`<div class='item'><span class='badge'>미확인</span><a href='${x.link}' target='_blank'>${x.title}</a></div>`).join('');
 }
 
+function drawIndexChart(rows){
+  const c=document.getElementById('idxChart'), ctx=c.getContext('2d');
+  ctx.clearRect(0,0,c.width,c.height);
+  if(!rows?.length) return;
+  const vals=rows.map(x=>x.close).filter(Boolean); if(!vals.length) return;
+  const min=Math.min(...vals), max=Math.max(...vals), pad=20;
+  const y=v=>(c.height-pad)-((v-min)/(Math.max(1,max-min)))*(c.height-pad*2);
+  ctx.strokeStyle='#1f2937'; ctx.strokeRect(0,0,c.width,c.height);
+  ctx.strokeStyle='#a78bfa'; ctx.lineWidth=2; ctx.beginPath();
+  rows.forEach((r,i)=>{const x=pad+i*(c.width-pad*2)/Math.max(1,rows.length-1); const yy=y(r.close); if(i===0) ctx.moveTo(x,yy); else ctx.lineTo(x,yy);});
+  ctx.stroke();
+  ctx.fillStyle='#9ca3af'; ctx.font='12px sans-serif';
+  ctx.fillText(`S&P500 최근 ${rows.length}일 · ${fmt(vals.at(-1))}`,10,16);
+  document.getElementById('idxMeta').textContent=`지수 범위 ${fmt(min)}~${fmt(max)} · 업데이트 ${new Date().toLocaleTimeString('ko-KR')}`;
+}
+
+async function loadMarketHistory(){
+  const j=await fetch('/api/market-history?symbol=%5Espx').then(r=>r.json());
+  if(j.ok) drawIndexChart((j.data||[]).slice(-60));
+}
+
 async function loadMarkets(){
   const j=await fetch('/api/markets').then(r=>r.json());
   const el=document.getElementById('panel-market');
@@ -220,13 +244,14 @@ document.getElementById('searchBtn').onclick=search;
 document.getElementById('watchBtn').onclick=()=>{loadSnapshot();loadChart();loadPortfolio();loadCommunity();};
 
 search();
-loadSnapshot(); loadChart(); loadPortfolio(); loadNews(); loadCommunity(); loadMarkets();
+loadSnapshot(); loadChart(); loadPortfolio(); loadNews(); loadCommunity(); loadMarkets(); loadMarketHistory();
 setInterval(loadSnapshot, 800);
 setInterval(loadChart, 2000);
 setInterval(loadPortfolio, 5000);
 setInterval(loadNews, 20000);
 setInterval(loadCommunity, 30000);
 setInterval(loadMarkets, 30000);
+setInterval(loadMarketHistory, 60000);
 </script>
 </body>
 </html>

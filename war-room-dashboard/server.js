@@ -151,6 +151,22 @@ app.get('/api/markets', async (_req, res) => {
   }
 });
 
+app.get('/api/market-history', async (req, res) => {
+  try {
+    const symbol = (req.query.symbol || '^spx').toString().toLowerCase();
+    const u = `https://stooq.com/q/d/l/?s=${encodeURIComponent(symbol)}&i=d`;
+    const txt = await fetch(u, { headers: { 'user-agent': 'Mozilla/5.0' } }).then((r) => r.text());
+    const lines = txt.trim().split('\n').slice(1).filter(Boolean);
+    const rows = lines.slice(-120).map((ln) => {
+      const [date, open, high, low, close, volume] = ln.split(',');
+      return { date, open: Number(open || 0), high: Number(high || 0), low: Number(low || 0), close: Number(close || 0), volume: Number(volume || 0) };
+    });
+    res.json({ ok: true, updatedAt: new Date().toISOString(), symbol, data: rows });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`war-room dashboard running: http://localhost:${PORT}`);
 });
