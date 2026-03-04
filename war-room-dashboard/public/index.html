@@ -32,6 +32,7 @@
     a{color:#93c5fd;text-decoration:none}
     .signal{font-weight:700;font-size:18px}
     .badge{font-size:11px;background:#1f2937;border-radius:999px;padding:2px 8px;margin-right:6px}
+    .hold-row{display:grid;grid-template-columns:1.4fr .6fr .8fr .8fr;gap:6px;padding:6px 0;border-bottom:1px solid #1f2937;font-size:12px}
     @media (max-width:1100px){.wrap,.grid{grid-template-columns:1fr}.topbar{grid-template-columns:1fr 1fr}}
   </style>
 </head>
@@ -48,6 +49,12 @@
     </div>
 
     <div class="card full topbar" id="topbar"></div>
+
+    <div class="card full">
+      <h3 style="margin:0 0 8px">내 보유 현황</h3>
+      <div class="sub" id="pfMeta">-</div>
+      <div id="portfolio"></div>
+    </div>
 
     <div class="grid full">
       <div class="card">
@@ -88,7 +95,7 @@
   </div>
 
 <script>
-let symbol='0009K0', name='에임드바이오', snap=null, chart=[];
+let symbol='0009K0', name='에임드바이오', snap=null, chart=[], portfolio=null;
 const fmt=n=>Number(n||0).toLocaleString('ko-KR');
 
 function setTopbar(){
@@ -107,16 +114,26 @@ function drawChart(rows){
   const c=document.getElementById('chart'), ctx=c.getContext('2d');
   ctx.clearRect(0,0,c.width,c.height);
   if(!rows?.length) return;
-  const prices=rows.map(r=>r.p).filter(Boolean); if(!prices.length) return;
-  const min=Math.min(...prices), max=Math.max(...prices); const pad=24;
+  const highs=rows.map(r=>r.h).filter(Boolean), lows=rows.map(r=>r.l).filter(Boolean);
+  if(!highs.length || !lows.length) return;
+  const min=Math.min(...lows), max=Math.max(...highs); const pad=24;
   const yv=v=>(c.height-pad)-((v-min)/(Math.max(1,max-min)))*(c.height-pad*2);
   ctx.strokeStyle='#1f2937'; ctx.strokeRect(0,0,c.width,c.height);
-  ctx.strokeStyle='#60a5fa'; ctx.lineWidth=2; ctx.beginPath();
-  rows.forEach((r,i)=>{const x=pad+i*(c.width-pad*2)/Math.max(1,rows.length-1); const y=yv(r.p); if(i===0)ctx.moveTo(x,y); else ctx.lineTo(x,y);});
-  ctx.stroke();
+  const w=Math.max(2, (c.width-pad*2)/Math.max(1,rows.length)*0.6);
+  rows.forEach((r,i)=>{
+    const x=pad+i*(c.width-pad*2)/Math.max(1,rows.length-1);
+    const yo=yv(r.o), yc=yv(r.c), yh=yv(r.h), yl=yv(r.l);
+    const up=r.c>=r.o;
+    ctx.strokeStyle=up?'#22c55e':'#ef4444';
+    ctx.beginPath(); ctx.moveTo(x,yh); ctx.lineTo(x,yl); ctx.stroke();
+    ctx.fillStyle=up?'#14532d':'#7f1d1d';
+    const y=Math.min(yo,yc), h=Math.max(2,Math.abs(yc-yo));
+    ctx.fillRect(x-w/2,y,w,h);
+  });
   ctx.fillStyle='#9ca3af'; ctx.font='12px sans-serif';
-  ctx.fillText(`고점 ${fmt(max)} / 저점 ${fmt(min)} · 최근 ${rows.length}틱`, 10, 16);
-  document.getElementById('chartMeta').textContent = `최근 추세: ${rows[0].p < rows[rows.length-1].p ? '상승' : '하락/횡보'} · 업데이트 ${new Date().toLocaleTimeString('ko-KR')}`;
+  ctx.fillText(`1분봉 · 고점 ${fmt(max)} / 저점 ${fmt(min)} · 최근 ${rows.length}봉`, 10, 16);
+  const first=rows[0].c, last=rows[rows.length-1].c;
+  document.getElementById('chartMeta').textContent = `최근 추세: ${last>first?'상승':'하락/횡보'} · 업데이트 ${new Date().toLocaleTimeString('ko-KR')}`;
 }
 
 function drawBook(s){
@@ -134,7 +151,7 @@ function drawBook(s){
 
 function setSignal(){
   if(!snap || !chart.length) return;
-  const last=chart[chart.length-1].p, prev=chart[Math.max(0,chart.length-6)].p;
+  const last=chart[chart.length-1].c, prev=chart[Math.max(0,chart.length-6)].c;
   const ob=(snap.orderbook.totalBid||0)-(snap.orderbook.totalAsk||0);
   let sig='[대기]', range='';
   if(last>prev && ob>0 && snap.program.netQty>0){sig='[진입 가능]'; range=`예상 범위: ${fmt(last)} ~ ${fmt(last+400)}`}
@@ -152,6 +169,16 @@ async function loadSnapshot(){
 async function loadChart(){
   const j=await fetch(`/api/chart?symbol=${symbol}`).then(r=>r.json());
   if(j.ok){chart=j.data||[]; drawChart(chart); setSignal();}
+}
+
+async function loadPortfolio(){
+  const j=await fetch('/api/portfolio').then(r=>r.json());
+  const meta=document.getElementById('pfMeta'); const el=document.getElementById('portfolio');
+  if(!j.ok){ meta.textContent=`보유현황 로드 실패: ${j.error}`; el.innerHTML=''; return; }
+  portfolio=j.data;
+  meta.textContent=`순자산 ${fmt(portfolio.account.nassAmt)} / 예수금 ${fmt(portfolio.account.dncaTotAmt)} / 평가금액 ${fmt(portfolio.account.evluAmtSmtl)} · ${new Date(j.updatedAt).toLocaleTimeString('ko-KR')}`;
+  if(!(portfolio.holdings||[]).length){ el.innerHTML='<div class="sub">보유 종목 없음</div>'; return; }
+  el.innerHTML=(portfolio.holdings||[]).map(h=>`<div class='hold-row'><div><b>${h.name}</b> (${h.code})</div><div>${fmt(h.qty)}주</div><div>평단 ${fmt(h.avg)}</div><div class='${h.pnlPct>=0?'up':'dn'}'>${fmt(h.pnl)} (${h.pnlPct}%)</div></div>`).join('');
 }
 
 async function loadNews(){
@@ -190,12 +217,13 @@ for (const b of document.querySelectorAll('.tab')) b.onclick=()=>{
 };
 
 document.getElementById('searchBtn').onclick=search;
-document.getElementById('watchBtn').onclick=()=>{loadSnapshot();loadChart();loadCommunity();};
+document.getElementById('watchBtn').onclick=()=>{loadSnapshot();loadChart();loadPortfolio();loadCommunity();};
 
 search();
-loadSnapshot(); loadChart(); loadNews(); loadCommunity(); loadMarkets();
+loadSnapshot(); loadChart(); loadPortfolio(); loadNews(); loadCommunity(); loadMarkets();
 setInterval(loadSnapshot, 800);
 setInterval(loadChart, 2000);
+setInterval(loadPortfolio, 5000);
 setInterval(loadNews, 20000);
 setInterval(loadCommunity, 30000);
 setInterval(loadMarkets, 30000);

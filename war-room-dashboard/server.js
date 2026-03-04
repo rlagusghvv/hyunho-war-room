@@ -71,6 +71,22 @@ app.get('/api/chart', async (req, res) => {
   }
 });
 
+app.get('/api/portfolio', async (_req, res) => {
+  try {
+    execFile('node', ['kis_bridge.mjs', 'portfolio'], { cwd: KIS_DIR, timeout: 18000 }, (err, stdout, stderr) => {
+      if (err) return res.status(500).json({ ok: false, error: (stderr || err.message).toString() });
+      try {
+        const data = JSON.parse((stdout || '').toString().trim());
+        return res.json({ ok: true, updatedAt: new Date().toISOString(), data });
+      } catch (e) {
+        return res.status(500).json({ ok: false, error: e.message });
+      }
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 app.get('/api/geopolitics', async (_req, res) => {
   try {
     const queries = [

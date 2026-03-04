@@ -86,11 +86,41 @@ async function snapshot(symbol){
 
 async function chart(symbol){
   const r=await kisRequest({path:'/uapi/domestic-stock/v1/quotations/inquire-time-itemchartprice',tr_id:'FHKST03010200',params:{FID_ETC_CLS_CODE:'0',FID_COND_MRKT_DIV_CODE:'UN',FID_INPUT_ISCD:symbol,FID_INPUT_HOUR_1:'200000',FID_PW_DATA_INCU_YN:'Y'}});
-  return (r.output2||[]).slice(0,120).reverse().map(x=>({t:x.stck_cntg_hour,p:Number(x.stck_prpr||0),v:Number(x.cntg_vol||0)}));
+  return (r.output2||[]).slice(0,120).reverse().map(x=>({
+    t:x.stck_cntg_hour,
+    o:Number(x.stck_oprc||x.stck_prpr||0),
+    h:Number(x.stck_hgpr||x.stck_prpr||0),
+    l:Number(x.stck_lwpr||x.stck_prpr||0),
+    c:Number(x.stck_prpr||0),
+    v:Number(x.cntg_vol||0)
+  }));
+}
+
+async function portfolio(){
+  const CANO = process.env.KIS_CANO;
+  const ACNT_PRDT_CD = process.env.KIS_ACNT_PRDT_CD || '01';
+  if (!CANO) throw new Error('Missing KIS_CANO in .env');
+  const r = await kisRequest({
+    path:'/uapi/domestic-stock/v1/trading/inquire-balance',
+    tr_id:'TTTC8434R',
+    params:{ CANO, ACNT_PRDT_CD, AFHR_FLPR_YN:'N', OFL_YN:'', INQR_DVSN:'02', UNPR_DVSN:'01', FUND_STTL_ICLD_YN:'N', FNCG_AMT_AUTO_RDPT_YN:'N', PRCS_DVSN:'00', CTX_AREA_FK100:'', CTX_AREA_NK100:'' }
+  });
+  const rows=(r.output1||[]).filter(x=>Number(x.hldg_qty||0)>0).map(x=>({
+    code:x.pdno,
+    name:x.prdt_name,
+    qty:Number(x.hldg_qty||0),
+    avg:Number(x.pchs_avg_pric||0),
+    now:Number(x.prpr||0),
+    pnl:Number(x.evlu_pfls_amt||0),
+    pnlPct:Number(x.evlu_pfls_rt||0)
+  }));
+  const sum=(r.output2||[])[0]||{};
+  return { holdings: rows, account: { nassAmt: Number(sum.nass_amt||0), dncaTotAmt: Number(sum.dnca_tot_amt||0), evluAmtSmtl: Number(sum.evlu_amt_smtl_amt||0) } };
 }
 
 const mode = process.argv[2];
 const symbol = (process.argv[3] || '0009K0').toUpperCase();
 if (mode === 'snapshot') console.log(JSON.stringify(await snapshot(symbol)));
 else if (mode === 'chart') console.log(JSON.stringify(await chart(symbol)));
-else throw new Error('mode: snapshot|chart');
+else if (mode === 'portfolio') console.log(JSON.stringify(await portfolio()));
+else throw new Error('mode: snapshot|chart|portfolio');
