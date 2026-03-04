@@ -35,6 +35,10 @@
     .hold-row{display:grid;grid-template-columns:1.4fr .6fr .8fr .8fr;gap:6px;padding:6px 0;border-bottom:1px solid #1f2937;font-size:12px}
     .idx-row{display:grid;grid-template-columns:110px 1fr 120px 90px;gap:8px;align-items:center;padding:6px 2px;border-bottom:1px solid #1f2937;font-size:13px}
     .spark{width:100%;height:24px}
+    .macro-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .macro-group{background:#0f172a;border:1px solid #1f2937;border-radius:10px;padding:8px}
+    .macro-group h4{margin:0 0 6px;font-size:12px;color:#cbd5e1}
+    .chip{font-size:11px;padding:2px 8px;border-radius:999px;background:#1f2937}
     .modal{position:fixed;inset:0;background:#0009;display:none;z-index:50;padding:20px;overflow:auto}
     .modal.on{display:block}
     .modal-card{max-width:1200px;margin:0 auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px}
@@ -58,7 +62,7 @@
 
     <div class="card full">
       <h3 style="margin:0 0 8px">메인 매크로 보드 (라이브)</h3>
-      <div id="macroMain"></div>
+      <div id="macroMain" class="macro-grid"></div>
     </div>
 
     <div class="card full">
@@ -115,6 +119,7 @@
         <div class="signal" id="signal">[대기]</div>
         <div class="sub" id="signalRange">예상 범위: -</div>
         <div id="signalReasons" class="sub" style="margin-top:8px"></div>
+        <div style="margin-top:10px" class="chip" id="macroDecision">매크로 진단 로딩중...</div>
       </div>
     </div>
   </div>
@@ -314,26 +319,33 @@ async function loadMarkets(){
   }
   const focus=['KOSPI','KOSDAQ','S&P500','NASDAQ100','DOW','USDKRW','WTI','GOLD','NATGAS','SILVER','COPPER'];
   const sorted=[...j.items].sort((a,b)=>focus.indexOf(a.symbol)-focus.indexOf(b.symbol));
-  el.innerHTML=sorted.map(m=>{
+
+  const normalized = sorted.map(m=>{
     const fallbackClose = (macroSeries[m.symbol]||[]).slice(-1)[0]?.close;
     let closeVal = (m.close===null || Number.isNaN(m.close)) ? fallbackClose : m.close;
     if ((closeVal===null || closeVal===undefined || Number.isNaN(closeVal)) && lastMarkets[m.symbol]) closeVal = lastMarkets[m.symbol];
     if (closeVal!==null && closeVal!==undefined && !Number.isNaN(closeVal)) lastMarkets[m.symbol] = closeVal;
+    return { ...m, closeVal };
+  });
+
+  el.innerHTML=normalized.map(m=>{
     const pctTxt = (m.pct===null || Number.isNaN(m.pct)) ? '--' : `${m.pct>=0?'+':''}${Number(m.pct).toFixed(2)}%`;
     const chgTxt = (m.chg===null || Number.isNaN(m.chg)) ? '--' : `${m.chg>=0?'+':''}${fmt(Math.round(m.chg*100)/100)}`;
-    const pxTxt = (closeVal===null || Number.isNaN(closeVal) || closeVal===undefined) ? '--' : fmt(closeVal);
+    const pxTxt = (m.closeVal===null || Number.isNaN(m.closeVal) || m.closeVal===undefined) ? '--' : fmt(m.closeVal);
     const cls = (m.pct===null || Number.isNaN(m.pct)) ? 'sub' : (m.pct>=0?'up':'dn');
     return `<div class='item'><b>${m.symbol}</b> ${pxTxt} <span class='${cls}'>${pctTxt}</span> <span class='sub'>(Δ ${chgTxt} | H:${m.high==null?'--':fmt(m.high)} L:${m.low==null?'--':fmt(m.low)}) ${m.stale?'· 지연':''}</span></div>`;
   }).join('');
 
-  main.innerHTML=sorted.map(m=>{
+  const groups = {
+    '한국 시장': ['KOSPI','KOSDAQ','USDKRW'],
+    '미국 지수': ['S&P500','NASDAQ100','DOW'],
+    '원자재': ['WTI','GOLD','NATGAS','SILVER','COPPER']
+  };
+
+  const card = (m)=>{
     const s=(macroSeries[m.symbol]||[]).map(x=>x.close).filter(Boolean);
-    const fallbackClose = s.length ? s[s.length-1] : null;
-    let closeVal = (m.close===null || Number.isNaN(m.close)) ? fallbackClose : m.close;
-    if ((closeVal===null || closeVal===undefined || Number.isNaN(closeVal)) && lastMarkets[m.symbol]) closeVal = lastMarkets[m.symbol];
-    if (closeVal!==null && closeVal!==undefined && !Number.isNaN(closeVal)) lastMarkets[m.symbol] = closeVal;
     const color=(m.pct===null || Number.isNaN(m.pct)) ? '#64748b' : (m.pct>=0?'#22c55e':'#ef4444');
-    const pxTxt=(closeVal===null || Number.isNaN(closeVal) || closeVal===undefined) ? '--' : fmt(closeVal);
+    const pxTxt=(m.closeVal===null || Number.isNaN(m.closeVal) || m.closeVal===undefined) ? '--' : fmt(m.closeVal);
     const pctTxt=(m.pct===null || Number.isNaN(m.pct)) ? '--' : `${m.pct>=0?'+':''}${Number(m.pct).toFixed(2)}%`;
     return `<div class='idx-row'>
       <div><b>${m.symbol}</b>${m.stale?" <span class='sub'>(지연)</span>":''}</div>
@@ -341,7 +353,23 @@ async function loadMarkets(){
       <div style='text-align:right'>${pxTxt}</div>
       <div class='${(m.pct===null || Number.isNaN(m.pct))?'sub':(m.pct>=0?'up':'dn')}' style='text-align:right'>${pctTxt}</div>
     </div>`;
+  };
+
+  main.innerHTML = Object.entries(groups).map(([title, syms])=>{
+    const items = syms.map(sym => normalized.find(x=>x.symbol===sym)).filter(Boolean).map(card).join('');
+    return `<div class='macro-group'><h4>${title}</h4>${items}</div>`;
   }).join('');
+
+  const usDown = ['S&P500','NASDAQ100','DOW'].some(s=>{
+    const m = normalized.find(x=>x.symbol===s);
+    return m && Number(m.pct) < -1;
+  });
+  const krDown = ['KOSPI','KOSDAQ'].some(s=>{
+    const m = normalized.find(x=>x.symbol===s);
+    return m && Number(m.pct) < -1;
+  });
+  const risk = (usDown && krDown) ? '리스크오프(방어 우선)' : (usDown || krDown) ? '변동성 주의(분할 대응)' : '중립/안정';
+  document.getElementById('macroDecision').textContent = `매크로 진단: ${risk}`;
 }
 
 async function search(){
