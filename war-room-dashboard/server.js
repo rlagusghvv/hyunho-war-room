@@ -145,7 +145,25 @@ app.get('/api/geopolitics', async (_req, res) => {
 app.get('/api/community', async (req, res) => {
   try {
     const symbol = (req.query.symbol || '0009K0').toString().toUpperCase();
-    const q = `${symbol} 종토방`;
+    const name = (req.query.name || '').toString().trim();
+
+    // Try to resolve Naver stock code (digits or alnum like 0009K0)
+    let naverCode = /^[0-9A-Z]{4,8}$/.test(symbol) ? symbol : null;
+    if (!naverCode) {
+      const q1 = symbol;
+      const r1 = await fetch(`https://ac.stock.naver.com/ac?q=${encodeURIComponent(q1)}&target=stock`, { headers: { 'user-agent': 'Mozilla/5.0' } });
+      const j1 = await r1.json().catch(() => ({}));
+      naverCode = (j1.items || [])[0]?.code || null;
+    }
+    if (!naverCode && name) {
+      const r2 = await fetch(`https://ac.stock.naver.com/ac?q=${encodeURIComponent(name)}&target=stock`, { headers: { 'user-agent': 'Mozilla/5.0' } });
+      const j2 = await r2.json().catch(() => ({}));
+      naverCode = (j2.items || [])[0]?.code || null;
+    }
+
+    const naverBoardUrl = naverCode ? `https://finance.naver.com/item/board.naver?code=${naverCode}` : null;
+
+    const q = `${name || symbol} 종토방`;
     const url = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=ko&gl=KR&ceid=KR:ko`;
     const feed = await parser.parseURL(url);
     const items = (feed.items || []).slice(0, 8).map((it) => ({
@@ -154,7 +172,7 @@ app.get('/api/community', async (req, res) => {
       pubDate: it.pubDate,
       source: '미확인',
     }));
-    res.json({ ok: true, updatedAt: new Date().toISOString(), items });
+    res.json({ ok: true, updatedAt: new Date().toISOString(), naverCode, naverBoardUrl, items });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
