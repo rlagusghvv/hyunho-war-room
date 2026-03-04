@@ -59,26 +59,34 @@
       <div class="sub" id="searchResults" style="margin-top:8px"></div>
     </div>
 
-    <div class="card full topbar" id="topbar"></div>
-
     <div class="card full">
       <h3 style="margin:0 0 8px">주식 대시보드 퀵 액션</h3>
       <div class="mini-actions">
-        <button id="openStockModal" class="primary">실시간 차트/호가/액션 보기</button>
+        <button id="openStockInfoModal" class="primary">선택종목/보유현황 보기</button>
+        <button id="openStockModal">실시간 차트/호가/액션 보기</button>
         <button id="openMacroModal">장 상황/지수흐름 보기</button>
       </div>
-      <div class="sub" style="margin-top:6px">요청 반영: 종목 상세와 장 상황은 모달에서 확인.</div>
-    </div>
-
-    <div class="card full">
-      <h3 style="margin:0 0 8px">내 보유 현황</h3>
-      <div class="sub" id="pfMeta">-</div>
-      <div id="portfolio"></div>
+      <div class="sub" style="margin-top:6px">요청 반영: 선택종목/보유현황/종목상세/장상황 모두 모달로 숨김.</div>
     </div>
 
     <div class="card full">
       <h3 style="margin:0 0 8px">메인 매크로 보드 (라이브)</h3>
       <div id="macroMain" class="macro-grid"></div>
+    </div>
+
+    <div id="stockInfoModal" class="modal">
+      <div class="modal-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <h3 style="margin:0">선택 종목 / 내 보유현황</h3>
+          <button id="closeStockInfoModal">닫기</button>
+        </div>
+        <div class="card topbar" id="topbar"></div>
+        <div class="card" style="margin-top:10px">
+          <h3 style="margin:0 0 8px">내 보유 현황</h3>
+          <div class="sub" id="pfMeta">-</div>
+          <div id="portfolio"></div>
+        </div>
+      </div>
     </div>
 
     <div id="stockModal" class="modal">
@@ -280,7 +288,7 @@ window.startLiveRelay = async (id,name)=>{
     if(meta) meta.textContent = s.ready ? `${name} 재생 준비 완료` : `${name} 준비중... (${tries})`;
     if(s.ready){
       clearInterval(timer);
-      playHls(s.hls);
+      playHls(s.proxiedHls || s.hls);
     }
     if(tries>25){
       clearInterval(timer);
@@ -454,7 +462,10 @@ for (const b of document.querySelectorAll('.tab[data-stock-tab]')) b.onclick=()=
 };
 
 document.getElementById('searchBtn').onclick=search;
-document.getElementById('watchBtn').onclick=()=>{loadSnapshot();loadChart();loadPortfolio();loadCommunity();};
+document.getElementById('watchBtn').onclick=()=>{loadSnapshot();loadPortfolio();loadCommunity();document.getElementById('stockInfoModal').classList.add('on');};
+document.getElementById('openStockInfoModal').onclick=()=>{loadSnapshot();loadPortfolio();document.getElementById('stockInfoModal').classList.add('on');};
+document.getElementById('closeStockInfoModal').onclick=()=>{document.getElementById('stockInfoModal').classList.remove('on');};
+document.getElementById('stockInfoModal').onclick=(e)=>{if(e.target.id==='stockInfoModal') document.getElementById('stockInfoModal').classList.remove('on');};
 document.getElementById('openStockModal').onclick=()=>{document.getElementById('stockModal').classList.add('on');};
 document.getElementById('closeStockModal').onclick=()=>{document.getElementById('stockModal').classList.remove('on');};
 document.getElementById('stockModal').onclick=(e)=>{if(e.target.id==='stockModal') document.getElementById('stockModal').classList.remove('on');};

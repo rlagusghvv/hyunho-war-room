@@ -402,8 +402,42 @@ app.get('/api/live/status/:id', (req, res) => {
     ready: !!cur?.ready,
     startedAt: cur?.startedAt || null,
     lastErr: cur?.lastErr || null,
-    hls: cur?.streamUrl || null
+    hls: cur?.streamUrl || null,
+    proxiedHls: `/api/live/playlist/${id}`
   });
+});
+
+app.get('/api/live/playlist/:id', async (req, res) => {
+  try {
+    const id = (req.params.id || '').toLowerCase();
+    const cur = liveRelays.get(id);
+    if (!cur?.streamUrl) return res.status(404).send('#EXTM3U\n');
+    const txt = await fetch(cur.streamUrl, { headers: { 'user-agent': 'Mozilla/5.0' } }).then((r) => r.text());
+    const lines = txt.split('\n').map((ln) => {
+      if (!ln || ln.startsWith('#')) return ln;
+      const abs = ln.startsWith('http') ? ln : new URL(ln, cur.streamUrl).toString();
+      return `/api/live/segment?u=${encodeURIComponent(abs)}`;
+    }).join('\n');
+    res.setHeader('content-type', 'application/vnd.apple.mpegurl');
+    res.send(lines);
+  } catch (e) {
+    res.status(500).send('#EXTM3U\n');
+  }
+});
+
+app.get('/api/live/segment', async (req, res) => {
+  try {
+    const u = (req.query.u || '').toString();
+    if (!u) return res.status(400).end();
+    const r = await fetch(u, { headers: { 'user-agent': 'Mozilla/5.0', referer: 'https://www.youtube.com/' } });
+    if (!r.ok) return res.status(502).end();
+    const ct = r.headers.get('content-type') || 'video/mp2t';
+    res.setHeader('content-type', ct);
+    const ab = await r.arrayBuffer();
+    res.send(Buffer.from(ab));
+  } catch {
+    res.status(500).end();
+  }
 });
 
 app.get('/api/naver-board', async (req, res) => {
