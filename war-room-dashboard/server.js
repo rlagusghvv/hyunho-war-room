@@ -98,6 +98,43 @@ app.get('/api/geopolitics', async (_req, res) => {
   }
 });
 
+app.get('/api/community', async (req, res) => {
+  try {
+    const symbol = (req.query.symbol || '0009K0').toString().toUpperCase();
+    const q = `${symbol} 종토방`;
+    const url = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=ko&gl=KR&ceid=KR:ko`;
+    const feed = await parser.parseURL(url);
+    const items = (feed.items || []).slice(0, 8).map((it) => ({
+      title: it.title,
+      link: it.link,
+      pubDate: it.pubDate,
+      source: '미확인',
+    }));
+    res.json({ ok: true, updatedAt: new Date().toISOString(), items });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+app.get('/api/markets', async (_req, res) => {
+  try {
+    const symbols = ['^spx', '^ndq', '^dji', 'cl.f', 'gc.f', 'btcusd'];
+    const names = { '^spx': 'S&P500', '^ndq': 'NASDAQ100', '^dji': 'DOW', 'cl.f': 'WTI', 'gc.f': 'GOLD', 'btcusd': 'BTC' };
+    const out = [];
+    for (const s of symbols) {
+      const u = `https://stooq.com/q/l/?s=${encodeURIComponent(s)}&f=sd2t2ohlcv&h&e=csv`;
+      const txt = await fetch(u, { headers: { 'user-agent': 'Mozilla/5.0' } }).then((r) => r.text());
+      const lines = txt.trim().split('\n');
+      const row = (lines[1] || '').split(',');
+      const [symbol, date, time, open, high, low, close] = row;
+      out.push({ symbol: names[s] || symbol, rawSymbol: s, date, time, open: Number(open || 0), high: Number(high || 0), low: Number(low || 0), close: Number(close || 0) });
+    }
+    res.json({ ok: true, updatedAt: new Date().toISOString(), items: out });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`war-room dashboard running: http://localhost:${PORT}`);
 });

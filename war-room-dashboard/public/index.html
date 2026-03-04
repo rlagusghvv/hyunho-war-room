@@ -3,143 +3,202 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>War Room Dashboard</title>
+  <title>Hyunho War Room</title>
   <style>
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0b1020;color:#e5e7eb;margin:0}
-    .wrap{display:grid;grid-template-columns:1.2fr 1fr;gap:12px;padding:14px}
-    .card{background:#111827;border:1px solid #273447;border-radius:12px;padding:12px}
-    h2{margin:0 0 8px;font-size:16px}.muted{color:#93a3b8;font-size:12px}
-    .row{padding:6px 0;border-bottom:1px solid #1f2937}.row:last-child{border-bottom:none}
-    input{background:#0f172a;color:#e5e7eb;border:1px solid #334155;border-radius:8px;padding:8px;width:220px}
-    button{background:#2563eb;color:#fff;border:none;border-radius:8px;padding:8px 10px;cursor:pointer}
-    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    table{width:100%;border-collapse:collapse;font-size:12px}td,th{padding:4px;border-bottom:1px solid #1f2937;text-align:right}th:first-child,td:first-child{text-align:center}
-    .good{color:#34d399}.bad{color:#f87171}
-    canvas{width:100%;height:220px;background:#0f172a;border-radius:8px}
-    .tags{font-size:11px;padding:2px 6px;border-radius:999px;background:#1f2937;margin-right:6px}
-    @media(max-width:1000px){.wrap{grid-template-columns:1fr}}
+    :root{--bg:#0b1020;--card:#111827;--line:#243042;--txt:#e5e7eb;--mut:#94a3b8;--up:#22c55e;--dn:#ef4444;--pri:#3b82f6}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter, -apple-system, BlinkMacSystemFont,'Segoe UI',sans-serif}
+    .wrap{padding:12px;display:grid;gap:10px;grid-template-columns:1.3fr 1fr}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px}
+    .full{grid-column:1/-1}
+    .topbar{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:8px}
+    .metric{background:#0f172a;border:1px solid #1f2a3a;border-radius:10px;padding:8px}
+    .metric .k{font-size:11px;color:var(--mut)} .metric .v{font-weight:700;margin-top:3px}
+    .up{color:var(--up)} .dn{color:var(--dn)}
+    .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    input{background:#0f172a;color:var(--txt);border:1px solid #334155;border-radius:8px;padding:8px;min-width:220px}
+    button{border:none;background:#1f2937;color:var(--txt);padding:7px 10px;border-radius:8px;cursor:pointer}
+    button.primary{background:var(--pri)}
+    .sub{font-size:12px;color:var(--mut)}
+    .grid{display:grid;grid-template-columns:1.4fr 1fr;gap:10px}
+    canvas{width:100%;height:300px;background:#0f172a;border-radius:8px;border:1px solid #1f2937}
+    .book-row{display:grid;grid-template-columns:50px 1fr 75px 1fr;gap:5px;align-items:center;font-size:12px;padding:3px 0;border-bottom:1px solid #1a2230}
+    .bar{height:16px;border-radius:4px;background:#1f2937;position:relative;overflow:hidden}
+    .bar>i{position:absolute;inset:0 auto 0 0;background:#7f1d1d99}.bar.bid>i{background:#14532d99}
+    .tabs{display:flex;gap:6px;margin-bottom:8px}
+    .tab{padding:6px 10px;border-radius:999px;background:#1f2937;font-size:12px}
+    .tab.on{background:#2563eb}
+    .panel{display:none}.panel.on{display:block}
+    .list .item{padding:7px 0;border-bottom:1px solid #1f2937}
+    a{color:#93c5fd;text-decoration:none}
+    .signal{font-weight:700;font-size:18px}
+    .badge{font-size:11px;background:#1f2937;border-radius:999px;padding:2px 8px;margin-right:6px}
+    @media (max-width:1100px){.wrap,.grid{grid-template-columns:1fr}.topbar{grid-template-columns:1fr 1fr}}
   </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="card" style="grid-column:1/-1">
-    <h2>종목 검색 / 실시간 전광판</h2>
-    <input id="q" placeholder="종목명 또는 코드" value="에임드바이오" />
-    <button id="searchBtn">검색</button>
-    <button id="watchBtn">선택종목 보기</button>
-    <span class="muted" id="selected">선택: 0009K0</span>
-    <div id="searchResults" class="muted" style="margin-top:8px"></div>
-  </div>
+  <div class="wrap">
+    <div class="card full">
+      <div class="toolbar">
+        <input id="q" placeholder="종목명/코드 검색" value="에임드바이오"/>
+        <button class="primary" id="searchBtn">검색</button>
+        <button id="watchBtn">선택 종목 보기</button>
+        <div class="sub" id="selected">선택: 0009K0</div>
+      </div>
+      <div class="sub" id="searchResults" style="margin-top:8px"></div>
+    </div>
 
-  <div class="card">
-    <h2>시세/수급 (거의 실시간)</h2>
-    <div id="meta" class="muted">loading...</div>
-    <div id="snapshot"></div>
-  </div>
+    <div class="card full topbar" id="topbar"></div>
 
-  <div class="card">
-    <h2>호가창 (Top 10)</h2>
-    <div id="bookMeta" class="muted">-</div>
-    <table>
-      <thead><tr><th>호가</th><th>매도</th><th>가격</th><th>매수</th></tr></thead>
-      <tbody id="book"></tbody>
-    </table>
-  </div>
+    <div class="grid full">
+      <div class="card">
+        <h3 style="margin:0 0 8px">실시간 차트</h3>
+        <canvas id="chart" width="1200" height="300"></canvas>
+        <div class="sub" id="chartMeta">-</div>
+      </div>
 
-  <div class="card">
-    <h2>실시간 차트</h2>
-    <canvas id="chart" width="900" height="220"></canvas>
-  </div>
+      <div class="card">
+        <h3 style="margin:0 0 8px">호가창 (토스형)</h3>
+        <div id="bookMeta" class="sub">-</div>
+        <div id="book"></div>
+      </div>
+    </div>
 
-  <div class="card">
-    <h2>전쟁/지정학 헤드라인</h2>
-    <div id="geoMeta" class="muted">loading...</div>
-    <div id="geo"></div>
+    <div class="grid full">
+      <div class="card">
+        <div class="tabs">
+          <button class="tab on" data-tab="news">확정 뉴스</button>
+          <button class="tab" data-tab="community">종토방/커뮤(미확인)</button>
+          <button class="tab" data-tab="war">전쟁/지정학</button>
+          <button class="tab" data-tab="market">글로벌 마켓</button>
+        </div>
+
+        <div class="panel on list" id="panel-news"></div>
+        <div class="panel list" id="panel-community"></div>
+        <div class="panel list" id="panel-war"></div>
+        <div class="panel list" id="panel-market"></div>
+      </div>
+
+      <div class="card">
+        <h3 style="margin:0 0 8px">액션 신호</h3>
+        <div class="signal" id="signal">[대기]</div>
+        <div class="sub" id="signalRange">예상 범위: -</div>
+        <div id="signalReasons" class="sub" style="margin-top:8px"></div>
+      </div>
+    </div>
   </div>
-</div>
 
 <script>
-let symbol='0009K0';
+let symbol='0009K0', name='에임드바이오', snap=null, chart=[];
 const fmt=n=>Number(n||0).toLocaleString('ko-KR');
 
+function setTopbar(){
+  if(!snap) return;
+  const c=snap.changePct>=0?'up':'dn';
+  const inv=snap.investor||{};
+  document.getElementById('topbar').innerHTML = `
+    <div class='metric'><div class='k'>${name} (${symbol})</div><div class='v'>${fmt(snap.price)}원 <span class='${c}'>${snap.changePct}%</span></div></div>
+    <div class='metric'><div class='k'>거래량</div><div class='v'>${fmt(snap.volume)}</div></div>
+    <div class='metric'><div class='k'>투자자(개/외/기)</div><div class='v'>${fmt(inv.personal)} / ${fmt(inv.foreign)} / ${fmt(inv.inst)}</div></div>
+    <div class='metric'><div class='k'>프로그램</div><div class='v ${snap.program.netQty>=0?'up':'dn'}'>${fmt(snap.program.netQty)}주</div></div>
+    <div class='metric'><div class='k'>기타법인 추정</div><div class='v'>${fmt(inv.otherEst)}</div></div>`;
+}
+
 function drawChart(rows){
-  const c=document.getElementById('chart');const ctx=c.getContext('2d');
+  const c=document.getElementById('chart'), ctx=c.getContext('2d');
   ctx.clearRect(0,0,c.width,c.height);
   if(!rows?.length) return;
-  const p=rows.map(r=>r.p).filter(Boolean); if(!p.length) return;
-  const min=Math.min(...p), max=Math.max(...p); const pad=12;
-  ctx.strokeStyle='#334155'; ctx.strokeRect(0,0,c.width,c.height);
-  ctx.beginPath(); ctx.strokeStyle='#60a5fa'; ctx.lineWidth=2;
-  rows.forEach((r,i)=>{const x=pad + (i*(c.width-pad*2))/Math.max(1,rows.length-1); const y=(c.height-pad)-((r.p-min)/(Math.max(1,max-min)))*(c.height-pad*2); if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);});
+  const prices=rows.map(r=>r.p).filter(Boolean); if(!prices.length) return;
+  const min=Math.min(...prices), max=Math.max(...prices); const pad=24;
+  const yv=v=>(c.height-pad)-((v-min)/(Math.max(1,max-min)))*(c.height-pad*2);
+  ctx.strokeStyle='#1f2937'; ctx.strokeRect(0,0,c.width,c.height);
+  ctx.strokeStyle='#60a5fa'; ctx.lineWidth=2; ctx.beginPath();
+  rows.forEach((r,i)=>{const x=pad+i*(c.width-pad*2)/Math.max(1,rows.length-1); const y=yv(r.p); if(i===0)ctx.moveTo(x,y); else ctx.lineTo(x,y);});
   ctx.stroke();
-  ctx.fillStyle='#93a3b8'; ctx.font='12px sans-serif';
-  ctx.fillText(`min ${fmt(min)} / max ${fmt(max)}`, 10, 16);
+  ctx.fillStyle='#9ca3af'; ctx.font='12px sans-serif';
+  ctx.fillText(`고점 ${fmt(max)} / 저점 ${fmt(min)} · 최근 ${rows.length}틱`, 10, 16);
+  document.getElementById('chartMeta').textContent = `최근 추세: ${rows[0].p < rows[rows.length-1].p ? '상승' : '하락/횡보'} · 업데이트 ${new Date().toLocaleTimeString('ko-KR')}`;
+}
+
+function drawBook(s){
+  if(!s?.orderbook) return;
+  document.getElementById('bookMeta').textContent = `총매도 ${fmt(s.orderbook.totalAsk)} / 총매수 ${fmt(s.orderbook.totalBid)} · asOf ${s.asOf||'-'}`;
+  const maxQ=Math.max(1,...s.orderbook.levels.map(x=>Math.max(x.askQty,x.bidQty)));
+  document.getElementById('book').innerHTML=s.orderbook.levels.slice(0,10).map(l=>`
+    <div class='book-row'>
+      <div>${l.n}</div>
+      <div class='bar'><i style='width:${Math.round((l.askQty/maxQ)*100)}%'></i></div>
+      <div>${fmt(l.ask||0)}</div>
+      <div class='bar bid'><i style='width:${Math.round((l.bidQty/maxQ)*100)}%'></i></div>
+    </div>`).join('');
+}
+
+function setSignal(){
+  if(!snap || !chart.length) return;
+  const last=chart[chart.length-1].p, prev=chart[Math.max(0,chart.length-6)].p;
+  const ob=(snap.orderbook.totalBid||0)-(snap.orderbook.totalAsk||0);
+  let sig='[대기]', range='';
+  if(last>prev && ob>0 && snap.program.netQty>0){sig='[진입 가능]'; range=`예상 범위: ${fmt(last)} ~ ${fmt(last+400)}`}
+  else if(last<prev && snap.price<60000){sig='[청산/축소]'; range=`예상 범위: ${fmt(last-400)} ~ ${fmt(last)}`}
+  else {range=`예상 범위: ${fmt(last-300)} ~ ${fmt(last+300)}`}
+  document.getElementById('signal').textContent=sig;
+  document.getElementById('signalRange').textContent=range;
+  document.getElementById('signalReasons').innerHTML=`- 5틱 추세: ${last>prev?'상승':'하락/횡보'}<br>- 호가 우위: ${ob>=0?'매수':'매도'}<br>- 프로그램: ${snap.program.netQty>=0?'순매수':'순매도'}`;
 }
 
 async function loadSnapshot(){
-  const r=await fetch(`/api/snapshot?symbol=${symbol}`); const j=await r.json();
-  if(!j.ok){document.getElementById('meta').textContent='error: '+j.error; return;}
-  const d=j.data;
-  document.getElementById('meta').textContent=`updated: ${new Date(j.updatedAt).toLocaleTimeString('ko-KR')}`;
-  document.getElementById('bookMeta').textContent=`체결시각: ${d.asOf||'-'} · 총매도 ${fmt(d.orderbook.totalAsk)} / 총매수 ${fmt(d.orderbook.totalBid)}`;
-  const cls=d.changePct>=0?'good':'bad';
-  document.getElementById('snapshot').innerHTML=`
-    <div class='row'>현재가 <b>${fmt(d.price)}</b>원 <span class='${cls}'>(${d.changePct}%)</span></div>
-    <div class='row'>고/저 ${fmt(d.high)} / ${fmt(d.low)} · 거래량 ${fmt(d.volume)}</div>
-    <div class='row'>개인 ${fmt(d.investor.personal)} · 외국인 ${fmt(d.investor.foreign)} · 기관 ${fmt(d.investor.inst)}</div>
-    <div class='row'>기타법인 추정 ${fmt(d.investor.otherEst)} · 프로그램 ${fmt(d.program.netQty)}주</div>
-  `;
-  document.getElementById('book').innerHTML=d.orderbook.levels.map(l=>`<tr><td>${l.n}</td><td>${fmt(l.askQty)}</td><td>${fmt(l.ask||l.bid)}</td><td>${fmt(l.bidQty)}</td></tr>`).join('');
+  const j=await fetch(`/api/snapshot?symbol=${symbol}`).then(r=>r.json());
+  if(j.ok){snap=j.data; setTopbar(); drawBook(snap); setSignal();}
 }
-
 async function loadChart(){
-  const r=await fetch(`/api/chart?symbol=${symbol}`); const j=await r.json();
-  if(j.ok) drawChart(j.data);
+  const j=await fetch(`/api/chart?symbol=${symbol}`).then(r=>r.json());
+  if(j.ok){chart=j.data||[]; drawChart(chart); setSignal();}
 }
 
-async function loadGeo(){
-  const r=await fetch('/api/geopolitics'); const j=await r.json();
-  document.getElementById('geoMeta').textContent=j.ok?`updated: ${new Date(j.updatedAt).toLocaleTimeString('ko-KR')}`:`error: ${j.error}`;
-  if(!j.ok) return;
-  document.getElementById('geo').innerHTML=j.items.slice(0,8).map(it=>`<div class='row'><span class='tags'>${it.source}</span><a href='${it.link}' target='_blank' style='color:#93c5fd'>${it.title}</a></div>`).join('');
+async function loadNews(){
+  const j=await fetch(`/api/geopolitics`).then(r=>r.json());
+  const el=document.getElementById('panel-news');
+  if(!j.ok) return el.innerHTML=`<div class='item'>뉴스 로드 실패: ${j.error}</div>`;
+  el.innerHTML=j.items.slice(0,8).map(x=>`<div class='item'><span class='badge'>FACT</span><a href='${x.link}' target='_blank'>${x.title}</a></div>`).join('');
+  document.getElementById('panel-war').innerHTML=j.items.slice(0,8).map(x=>`<div class='item'><span class='badge'>${x.source}</span><a href='${x.link}' target='_blank'>${x.title}</a></div>`).join('');
+}
+
+async function loadCommunity(){
+  const j=await fetch(`/api/community?symbol=${symbol}`).then(r=>r.json());
+  const el=document.getElementById('panel-community');
+  if(!j.ok) return el.innerHTML=`<div class='item'>커뮤니티 로드 실패: ${j.error}</div>`;
+  el.innerHTML=j.items.slice(0,8).map(x=>`<div class='item'><span class='badge'>미확인</span><a href='${x.link}' target='_blank'>${x.title}</a></div>`).join('');
+}
+
+async function loadMarkets(){
+  const j=await fetch('/api/markets').then(r=>r.json());
+  const el=document.getElementById('panel-market');
+  if(!j.ok) return el.innerHTML=`<div class='item'>마켓 로드 실패: ${j.error}</div>`;
+  el.innerHTML=j.items.map(m=>`<div class='item'><b>${m.symbol}</b> ${fmt(m.close)} <span class='sub'>(H:${fmt(m.high)} L:${fmt(m.low)})</span></div>`).join('');
 }
 
 async function search(){
-  const q=document.getElementById('q').value.trim();
-  if(!q) return;
-  const r=await fetch(`/api/search?q=${encodeURIComponent(q)}`); const j=await r.json();
-  if(!j.ok) return;
-  const html=(j.items||[]).slice(0,8).map(it=>`<button onclick="pick('${it.code}','${it.name}')" style="margin:4px;background:#1f2937">${it.name} (${it.code})</button>`).join('');
-  document.getElementById('searchResults').innerHTML=html || '검색 결과 없음';
+  const q=document.getElementById('q').value.trim(); if(!q) return;
+  const j=await fetch(`/api/search?q=${encodeURIComponent(q)}`).then(r=>r.json());
+  document.getElementById('searchResults').innerHTML=(j.items||[]).slice(0,8).map(x=>`<button onclick="pick('${x.code}','${x.name}')">${x.name}(${x.code})</button>`).join(' ')||'검색 결과 없음';
 }
-window.pick=(code,name)=>{symbol=code;document.getElementById('selected').textContent=`선택: ${name} (${code})`;};
+window.pick=(code,nm)=>{symbol=code;name=nm;document.getElementById('selected').textContent=`선택: ${nm} (${code})`;};
+
+for (const b of document.querySelectorAll('.tab')) b.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  const key=b.dataset.tab; document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.getElementById(`panel-${key}`).classList.add('on');
+};
 
 document.getElementById('searchBtn').onclick=search;
-document.getElementById('watchBtn').onclick=()=>{ tick(true); };
-
-let busySnapshot = false;
-let busyChart = false;
-
-async function tick(forceChart=false){
-  if (busySnapshot) return;
-  busySnapshot = true;
-  try {
-    await loadSnapshot();
-    if ((forceChart || Date.now()%10000<2200) && !busyChart) {
-      busyChart = true;
-      try { await loadChart(); } finally { busyChart = false; }
-    }
-  } finally {
-    busySnapshot = false;
-  }
-}
+document.getElementById('watchBtn').onclick=()=>{loadSnapshot();loadChart();loadCommunity();};
 
 search();
-loadGeo();
-tick(true);
-setInterval(tick,800); // 초저지연(중복요청 방지)
-setInterval(loadGeo,20000);
-setInterval(async ()=>{ if (!busyChart){ busyChart = true; try { await loadChart(); } finally { busyChart = false; } } },2000);
+loadSnapshot(); loadChart(); loadNews(); loadCommunity(); loadMarkets();
+setInterval(loadSnapshot, 800);
+setInterval(loadChart, 2000);
+setInterval(loadNews, 20000);
+setInterval(loadCommunity, 30000);
+setInterval(loadMarkets, 30000);
 </script>
 </body>
 </html>
