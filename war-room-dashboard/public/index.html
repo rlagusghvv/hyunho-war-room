@@ -84,25 +84,32 @@
     <div id="stockModal" class="modal">
       <div class="modal-card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <h3 style="margin:0">종목 상세 (실시간 차트/호가/액션)</h3>
+          <h3 style="margin:0">종목 상세 (모달)</h3>
           <button id="closeStockModal">닫기</button>
         </div>
-        <div class="grid">
-          <div class="card">
-            <h3 style="margin:0 0 8px">종목 실시간 차트</h3>
-            <canvas id="chart" width="1200" height="300"></canvas>
-            <div class="sub" id="chartMeta">-</div>
-          </div>
-          <div class="card">
-            <h3 style="margin:0 0 8px">호가창 + 액션 신호</h3>
-            <div id="bookMeta" class="sub">-</div>
-            <div id="book"></div>
-            <hr style="border-color:#1f2937;opacity:.4"/>
-            <div class="signal" id="signal">[대기]</div>
-            <div class="sub" id="signalRange">예상 범위: -</div>
-            <div id="signalReasons" class="sub" style="margin-top:8px"></div>
+        <div class="tabs" style="margin-bottom:10px">
+          <button class="tab on" data-stock-tab="overview">차트/호가/액션</button>
+          <button class="tab" data-stock-tab="community">종토방/커뮤니티</button>
+        </div>
+        <div class="panel on" id="stock-panel-overview">
+          <div class="grid">
+            <div class="card">
+              <h3 style="margin:0 0 8px">종목 실시간 차트</h3>
+              <canvas id="chart" width="1200" height="300"></canvas>
+              <div class="sub" id="chartMeta">-</div>
+            </div>
+            <div class="card">
+              <h3 style="margin:0 0 8px">호가창 + 액션 신호</h3>
+              <div id="bookMeta" class="sub">-</div>
+              <div id="book"></div>
+              <hr style="border-color:#1f2937;opacity:.4"/>
+              <div class="signal" id="signal">[대기]</div>
+              <div class="sub" id="signalRange">예상 범위: -</div>
+              <div id="signalReasons" class="sub" style="margin-top:8px"></div>
+            </div>
           </div>
         </div>
+        <div class="panel list" id="stock-panel-community"></div>
       </div>
     </div>
 
@@ -124,14 +131,12 @@
         <div class="tabs">
           <button class="tab on" data-tab="news">확정 뉴스</button>
           <button class="tab" data-tab="intel">월드 인텔</button>
-          <button class="tab" data-tab="community">종토방/커뮤(미확인)</button>
           <button class="tab" data-tab="war">전쟁/지정학</button>
           <button class="tab" data-tab="market">글로벌 마켓</button>
         </div>
 
         <div class="panel on list" id="panel-news"></div>
         <div class="panel list" id="panel-intel"></div>
-        <div class="panel list" id="panel-community"></div>
         <div class="panel list" id="panel-war"></div>
         <div class="panel list" id="panel-market"></div>
       </div>
@@ -299,7 +304,7 @@ window.playHls = (src)=>{
 
 async function loadCommunity(){
   const j=await fetch(`/api/community?symbol=${symbol}&name=${encodeURIComponent(name)}`).then(r=>r.json());
-  const el=document.getElementById('panel-community');
+  const el=document.getElementById('stock-panel-community');
   if(!j.ok) return el.innerHTML=`<div class='item'>커뮤니티 로드 실패: ${j.error}</div>`;
 
   let board = { ok:true, items:[] };
@@ -435,10 +440,17 @@ async function search(){
 }
 window.pick=(code,nm)=>{symbol=code;name=nm;document.getElementById('selected').textContent=`선택: ${nm} (${code})`;};
 
-for (const b of document.querySelectorAll('.tab')) b.onclick=()=>{
-  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on')); b.classList.add('on');
-  const key=b.dataset.tab; document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+for (const b of document.querySelectorAll('.tab[data-tab]')) b.onclick=()=>{
+  document.querySelectorAll('.tab[data-tab]').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  const key=b.dataset.tab; document.querySelectorAll('[id^="panel-"]').forEach(p=>p.classList.remove('on'));
   document.getElementById(`panel-${key}`).classList.add('on');
+};
+
+for (const b of document.querySelectorAll('.tab[data-stock-tab]')) b.onclick=()=>{
+  document.querySelectorAll('.tab[data-stock-tab]').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  const key=b.dataset.stockTab;
+  document.querySelectorAll('[id^="stock-panel-"]').forEach(p=>p.classList.remove('on'));
+  document.getElementById(`stock-panel-${key}`).classList.add('on');
 };
 
 document.getElementById('searchBtn').onclick=search;

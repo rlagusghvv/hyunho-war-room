@@ -1,7 +1,6 @@
 const express = require('express');
 const Parser = require('rss-parser');
-const { execFile, spawn } = require('child_process');
-const fs = require('fs');
+const { execFile } = require('child_process');
 const path = require('path');
 
 const app = express();
@@ -55,28 +54,12 @@ function runNode(code, cwd, timeout = 15000) {
   });
 }
 
-function relayDir(id) {
-  return path.join(__dirname, 'public', 'live', id);
-}
-
 function stopRelay(id) {
-  const cur = liveRelays.get(id);
-  if (cur?.proc && !cur.proc.killed) {
-    try { cur.proc.kill('SIGTERM'); } catch {}
-  }
   liveRelays.delete(id);
 }
 
 async function startRelay(id, url) {
-  const dir = relayDir(id);
-  fs.mkdirSync(dir, { recursive: true });
-  for (const f of fs.readdirSync(dir)) {
-    if (f.endsWith('.ts') || f.endsWith('.m3u8')) {
-      try { fs.unlinkSync(path.join(dir, f)); } catch {}
-    }
-  }
   stopRelay(id);
-
   const streamUrl = await new Promise((resolve, reject) => {
     execFile(YTDLP_BIN, ['-g', '--no-warnings', url], { timeout: 20000 }, (err, stdout, stderr) => {
       if (err) return reject(new Error((stderr || err.message).toString()));
@@ -85,21 +68,8 @@ async function startRelay(id, url) {
       resolve(line);
     });
   });
-
-  const args = ['-hide_banner', '-loglevel', 'error', '-i', streamUrl, '-c:v', 'copy', '-c:a', 'aac', '-f', 'hls', '-hls_time', '2', '-hls_list_size', '6', '-hls_flags', 'delete_segments+append_list', '-hls_segment_filename', `${dir}/seg_%03d.ts`, `${dir}/index.m3u8`];
-  const proc = spawn('ffmpeg', args, { cwd: __dirname });
-  let lastErr = '';
-  proc.stderr?.on('data', (d) => {
-    lastErr = String(d).slice(-4000);
-    const cur = liveRelays.get(id);
-    if (cur) cur.lastErr = lastErr;
-  });
-  proc.on('exit', (code) => {
-    const cur = liveRelays.get(id);
-    if (cur) cur.exitedCode = code;
-  });
-  liveRelays.set(id, { proc, startedAt: Date.now(), lastErr, url, streamUrl });
-  return { ok: true, id, hls: `/live/${id}/index.m3u8` };
+  liveRelays.set(id, { startedAt: Date.now(), url, streamUrl, ready: true });
+  return { ok: true, id, hls: streamUrl };
 }
 
 app.get('/api/search', async (req, res) => {
@@ -425,17 +395,14 @@ app.post('/api/live/stop/:id', express.json(), (req, res) => {
 app.get('/api/live/status/:id', (req, res) => {
   const id = (req.params.id || '').toLowerCase();
   const cur = liveRelays.get(id);
-  const m3u8 = path.join(relayDir(id), 'index.m3u8');
-  const ready = fs.existsSync(m3u8) && fs.statSync(m3u8).size > 0;
   res.json({
     ok: true,
     id,
-    running: !!cur && !cur.proc?.killed,
-    ready,
+    running: !!cur,
+    ready: !!cur?.ready,
     startedAt: cur?.startedAt || null,
-    exitedCode: cur?.exitedCode,
     lastErr: cur?.lastErr || null,
-    hls: `/live/${id}/index.m3u8`
+    hls: cur?.streamUrl || null
   });
 });
 
