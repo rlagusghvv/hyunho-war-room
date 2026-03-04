@@ -33,6 +33,8 @@
     .signal{font-weight:700;font-size:18px}
     .badge{font-size:11px;background:#1f2937;border-radius:999px;padding:2px 8px;margin-right:6px}
     .hold-row{display:grid;grid-template-columns:1.4fr .6fr .8fr .8fr;gap:6px;padding:6px 0;border-bottom:1px solid #1f2937;font-size:12px}
+    .idx-row{display:grid;grid-template-columns:110px 1fr 120px 90px;gap:8px;align-items:center;padding:6px 2px;border-bottom:1px solid #1f2937;font-size:13px}
+    .spark{width:100%;height:24px}
     .modal{position:fixed;inset:0;background:#0009;display:none;z-index:50;padding:20px;overflow:auto}
     .modal.on{display:block}
     .modal-card{max-width:1200px;margin:0 auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px}
@@ -55,8 +57,8 @@
     <div class="card full topbar" id="topbar"></div>
 
     <div class="card full">
-      <h3 style="margin:0 0 8px">메인 매크로 보드 (지수/달러/원자재)</h3>
-      <div id="macroMain" class="topbar"></div>
+      <h3 style="margin:0 0 8px">메인 매크로 보드 (라이브)</h3>
+      <div id="macroMain"></div>
     </div>
 
     <div class="card full">
@@ -118,7 +120,7 @@
   </div>
 
 <script>
-let symbol='0009K0', name='에임드바이오', snap=null, chart=[], portfolio=null;
+let symbol='0009K0', name='에임드바이오', snap=null, chart=[], portfolio=null, macroSeries={};
 const fmt=n=>Number(n||0).toLocaleString('ko-KR');
 
 function setTopbar(){
@@ -271,7 +273,22 @@ function drawIndexChart(series){
 
 async function loadMarketHistory(){
   const j=await fetch('/api/macro-history').then(r=>r.json());
-  if(j.ok) drawIndexChart(j.series||{});
+  if(j.ok){
+    macroSeries = j.series || {};
+    drawIndexChart(macroSeries);
+  }
+}
+
+function sparklineSvg(arr,color='#60a5fa'){
+  if(!arr?.length) return '';
+  const vals=arr.slice(-30);
+  const min=Math.min(...vals), max=Math.max(...vals), w=120, h=24;
+  const pts=vals.map((v,i)=>{
+    const x=(i*(w-2))/Math.max(1,vals.length-1)+1;
+    const y=(h-2)-((v-min)/(Math.max(1,max-min)))*(h-4)+1;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  return `<svg class='spark' viewBox='0 0 ${w} ${h}' preserveAspectRatio='none'><polyline fill='none' stroke='${color}' stroke-width='2' points='${pts}'/></svg>`;
 }
 
 async function loadMarkets(){
@@ -283,10 +300,20 @@ async function loadMarkets(){
     main.innerHTML='';
     return;
   }
-  const focus=['KOSPI','S&P500','NASDAQ100','USDKRW','WTI','GOLD','NATGAS','SILVER','COPPER'];
+  const focus=['KOSPI','S&P500','NASDAQ100','DOW','USDKRW','WTI','GOLD','NATGAS','SILVER','COPPER'];
   const sorted=[...j.items].sort((a,b)=>focus.indexOf(a.symbol)-focus.indexOf(b.symbol));
   el.innerHTML=sorted.map(m=>`<div class='item'><b>${m.symbol}</b> ${fmt(m.close)} <span class='${m.pct>=0?'up':'dn'}'>${m.pct>=0?'+':''}${m.pct.toFixed(2)}%</span> <span class='sub'>(Δ ${m.chg>=0?'+':''}${fmt(Math.round(m.chg*100)/100)} | H:${fmt(m.high)} L:${fmt(m.low)})</span></div>`).join('');
-  main.innerHTML=sorted.slice(0,9).map(m=>`<div class='metric'><div class='k'>${m.symbol}</div><div class='v'>${fmt(m.close)}</div><div class='${m.pct>=0?'up':'dn'}'>${m.pct>=0?'+':''}${m.pct.toFixed(2)}% (${m.chg>=0?'+':''}${fmt(Math.round(m.chg*100)/100)})</div></div>`).join('');
+
+  main.innerHTML=sorted.map(m=>{
+    const s=(macroSeries[m.symbol]||[]).map(x=>x.close).filter(Boolean);
+    const color=m.pct>=0?'#22c55e':'#ef4444';
+    return `<div class='idx-row'>
+      <div><b>${m.symbol}</b></div>
+      <div>${sparklineSvg(s,color)}</div>
+      <div style='text-align:right'>${fmt(m.close)}</div>
+      <div class='${m.pct>=0?'up':'dn'}' style='text-align:right'>${m.pct>=0?'+':''}${m.pct.toFixed(2)}%</div>
+    </div>`;
+  }).join('');
 }
 
 async function search(){
@@ -316,8 +343,8 @@ setInterval(loadPortfolio, 5000);
 setInterval(loadNews, 20000);
 setInterval(loadIntel, 30000);
 setInterval(loadCommunity, 30000);
-setInterval(loadMarkets, 5000);
-setInterval(loadMarketHistory, 15000);
+setInterval(loadMarkets, 2000);
+setInterval(loadMarketHistory, 10000);
 </script>
 </body>
 </html>
