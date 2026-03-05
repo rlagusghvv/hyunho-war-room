@@ -15,7 +15,8 @@
     .metric .k{font-size:11px;color:var(--mut)} .metric .v{font-weight:700;margin-top:3px}
     .up{color:var(--up)} .dn{color:var(--dn)}
     .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-    input{background:#0f172a;color:var(--txt);border:1px solid #334155;border-radius:8px;padding:8px;min-width:220px}
+    input[type="text"], input[type="search"], input:not([type]){background:#0f172a;color:var(--txt);border:1px solid #334155;border-radius:8px;padding:8px;min-width:220px}
+    input[type="checkbox"]{min-width:auto;padding:0;border:0;accent-color:#3b82f6}
     button{border:none;background:#1f2937;color:var(--txt);padding:7px 10px;border-radius:8px;cursor:pointer}
     button.primary{background:var(--pri)}
     .sub{font-size:12px;color:var(--mut)}
@@ -44,7 +45,8 @@
     .live-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
     .live-cell .video-player{height:240px}
     .channel-picks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-    .channel-item{display:flex;align-items:center;gap:8px;padding:8px;border:1px solid #1f2937;border-radius:8px;background:#0f172a;font-size:13px}
+    .channel-item{display:flex;align-items:center;gap:8px;padding:8px;border:1px solid #1f2937;border-radius:8px;background:#0f172a;font-size:13px;color:#e5e7eb}
+    .ch-name{font-weight:600}
     .modal{position:fixed;inset:0;background:#0009;display:none;z-index:50;padding:20px;overflow:auto}
     .modal.on{display:block}
     .modal-card{max-width:1200px;margin:0 auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px}
@@ -285,7 +287,7 @@ async function loadLiveNews(){
   `;
 
   document.getElementById('liveChecks').innerHTML = channels.map(c => `
-    <label class='channel-item'><input type='checkbox' data-live-check='${c.id}' ${window.__liveSelected.has(c.id)?'checked':''}/> ${c.name} ${c.available?'':'<span class="sub">(불안정)</span>'}</label>
+    <label class='channel-item'><input type='checkbox' data-live-check='${c.id}' ${window.__liveSelected.has(c.id)?'checked':''}/> <span class='ch-name'>${c.name}</span> ${c.available?'':'<span class="sub">(불안정)</span>'}</label>
   `).join('');
 
   applyLiveSelection();
