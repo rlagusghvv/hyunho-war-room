@@ -404,7 +404,6 @@ async function loadMarketFlow(){
   const fiTop = Array.isArray(d.foreignInstitutionTotal)?d.foreignInstitutionTotal:[];
   const fiTopFrgn = fiTop.reduce((a,x)=>a+(Number(String(x.frgn_ntby_qty||0).replace(/,/g,''))||0),0);
   const fiTopOrgn = fiTop.reduce((a,x)=>a+(Number(String(x.orgn_ntby_qty||0).replace(/,/g,''))||0),0);
-  const iv = (snap && snap.investor) ? snap.investor : { personal:0, foreign:0, inst:0 };
 
   const cells=[
     {k:'코스피 개인(시세)',v:pick(mt,['prsn_ntby_qty'])},
@@ -412,9 +411,6 @@ async function loadMarketFlow(){
     {k:'코스피 기관(시세)',v:pick(mt,['orgn_ntby_qty']) || pick(k,['orgn_ntby_qty'])},
     {k:'코스닥 외국인(일별)',v:pick(q,['frgn_ntby_qty'])},
     {k:'코스닥 기관(일별)',v:pick(q,['orgn_ntby_qty'])},
-    {k:`${symbol} 외국인`,v:Number(iv.foreign||0)},
-    {k:`${symbol} 기관`,v:Number(iv.inst||0)},
-    {k:`${symbol} 개인`,v:Number(iv.personal||0)},
     {k:'프로그램 외국인',v:arrPickByName(d.program,'외국인')},
     {k:'프로그램 기관',v:arrPickByName(d.program,'기관')},
     {k:'선물 거래량',v:sumField(d.futures,'acml_vol')},
