@@ -64,20 +64,22 @@ async function kisRequest({ path, tr_id, params }) {
 }
 
 async function snapshot(symbol){
-  const [q,ob,inv,prg]=await Promise.all([
+  const [q,ob,inv,prg,est]=await Promise.all([
     kisRequest({path:'/uapi/domestic-stock/v1/quotations/inquire-price',tr_id:'FHKST01010100',params:{FID_COND_MRKT_DIV_CODE:'UN',FID_INPUT_ISCD:symbol}}),
     kisRequest({path:'/uapi/domestic-stock/v1/quotations/inquire-asking-price-exp-ccn',tr_id:'FHKST01010200',params:{FID_COND_MRKT_DIV_CODE:'UN',FID_INPUT_ISCD:symbol}}),
     kisRequest({path:'/uapi/domestic-stock/v1/quotations/inquire-investor',tr_id:'FHKST01010900',params:{FID_COND_MRKT_DIV_CODE:'UN',FID_INPUT_ISCD:symbol}}),
     kisRequest({path:'/uapi/domestic-stock/v1/quotations/program-trade-by-stock',tr_id:'FHPPG04650101',params:{FID_COND_MRKT_DIV_CODE:'UN',FID_INPUT_ISCD:symbol}}),
+    kisRequest({path:'/uapi/domestic-stock/v1/quotations/investor-trend-estimate',tr_id:'HHPTJ04160200',params:{MKSC_SHRN_ISCD:symbol}}).catch(()=>({})),
   ]);
-  const o=q.output||{}, b=ob.output1||{}, i=(inv.output||[])[0]||{}, p=(prg.output||[])[0]||{};
-  const personal=Number(i.prsn_ntby_qty||0), foreign=Number(i.frgn_ntby_qty||0), inst=Number(i.orgn_ntby_qty||0);
+  const o=q.output||{}, b=ob.output1||{}, i=(inv.output||[])[0]||{}, p=(prg.output||[])[0]||{}, e=(est.output||[])[0]||est.output1||{};
+  const personal=Number(i.prsn_ntby_qty||e.prsn_ntby_qty||0), foreign=Number(i.frgn_ntby_qty||e.frgn_ntby_qty||0), inst=Number(i.orgn_ntby_qty||e.orgn_ntby_qty||0);
   const levels=[]; for(let n=1;n<=10;n++) levels.push({n,ask:Number(b['askp'+n]||0),askQty:Number(b['askp_rsqn'+n]||0),bid:Number(b['bidp'+n]||0),bidQty:Number(b['bidp_rsqn'+n]||0)});
   return {
     symbol,
     name:o.hts_kor_isnm || symbol,
     price:Number(o.stck_prpr||0), change:Number(o.prdy_vrss||0), changePct:Number(o.prdy_ctrt||0), high:Number(o.stck_hgpr||0), low:Number(o.stck_lwpr||0), volume:Number(o.acml_vol||0), value:Number(o.acml_tr_pbmn||0),
     investor:{ personal, foreign, inst, otherEst:-(personal+foreign+inst) },
+    investorEstimate:{ personal:Number(e.prsn_ntby_qty||0), foreign:Number(e.frgn_ntby_qty||0), inst:Number(e.orgn_ntby_qty||0) },
     orderbook:{ totalAsk:Number(b.total_askp_rsqn||0), totalBid:Number(b.total_bidp_rsqn||0), levels },
     program:{ netQty:Number(p.whol_smtn_ntby_qty||0), netAmt:Number(p.whol_smtn_ntby_tr_pbmn||0) },
     asOf:o.stck_cntg_hour || b.aspr_acpt_hour || null,
