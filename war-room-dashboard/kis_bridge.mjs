@@ -200,6 +200,15 @@ async function marketFlow(){
   } catch { out.foreignInstitutionTotal = []; }
 
   try {
+    const fe = await kisRequest({
+      path:'/uapi/domestic-stock/v1/quotations/frgnmem-trade-estimate',
+      tr_id:'FHPTJ04160200',
+      params:{ FID_COND_MRKT_DIV_CODE:'J', FID_COND_SCR_DIV_CODE:'16441', FID_INPUT_ISCD:'0000', FID_RANK_SORT_CLS_CODE:'0', FID_RANK_SORT_CLS_CODE_2:'0' }
+    });
+    out.frgnmemTradeEstimate = fe.output || fe.output1 || fe.output2 || [];
+  } catch { out.frgnmemTradeEstimate = []; }
+
+  try {
     const p = await kisRequest({
       path:'/uapi/domestic-stock/v1/quotations/investor-program-trade-today',
       tr_id:'HHPPG046600C0',
