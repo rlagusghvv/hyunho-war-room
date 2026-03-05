@@ -182,6 +182,24 @@ async function marketFlow(){
   } catch { out.kosdaq = {}; }
 
   try {
+    const kt = await kisRequest({
+      path:'/uapi/domestic-stock/v1/quotations/inquire-investor-time-by-market',
+      tr_id:'FHPTJ04030000',
+      params:{ FID_INPUT_ISCD:'999', FID_INPUT_ISCD_2:'S001' }
+    });
+    out.marketTime = kt.output || kt.output1 || kt.output2 || [];
+  } catch { out.marketTime = []; }
+
+  try {
+    const fi = await kisRequest({
+      path:'/uapi/domestic-stock/v1/quotations/foreign-institution-total',
+      tr_id:'FHPTJ04400000',
+      params:{ FID_COND_MRKT_DIV_CODE:'V', FID_COND_SCR_DIV_CODE:'16449', FID_INPUT_ISCD:'0000', FID_DIV_CLS_CODE:'0', FID_RANK_SORT_CLS_CODE:'0', FID_ETC_CLS_CODE:'0' }
+    });
+    out.foreignInstitutionTotal = fi.output || fi.output1 || fi.output2 || [];
+  } catch { out.foreignInstitutionTotal = []; }
+
+  try {
     const p = await kisRequest({
       path:'/uapi/domestic-stock/v1/quotations/investor-program-trade-today',
       tr_id:'HHPPG046600C0',

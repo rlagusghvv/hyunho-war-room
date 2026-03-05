@@ -393,6 +393,7 @@ async function loadMarketFlow(){
   if(!j.ok){ el.innerHTML=`<div class='flow-cell sub' style='grid-column:1/-1'>시장 수급 API 오류/지연</div>`; return; }
   const d=j.data||{};
   const k=d.kospi||{}, q=d.kosdaq||{};
+  const mt=(Array.isArray(d.marketTime)?d.marketTime:[])[0]||{};
   const pick=(o,keys)=>{ for(const kk of keys){ if(o && o[kk]!==undefined && o[kk]!==null && String(o[kk]).trim()!=='') return Number(String(o[kk]).replace(/,/g,''))||0; } return 0; };
   const arrPickByName=(arr,name,field='all_ntby_qty')=>{
     const row=(Array.isArray(arr)?arr:[]).find(x=>String(x.invr_cls_name||'').replace(/\s/g,'')===name.replace(/\s/g,''));
@@ -400,15 +401,22 @@ async function loadMarketFlow(){
     return Number(String(row[field]??row.nabt_ntby_qty??0).replace(/,/g,''))||0;
   };
   const sumField=(arr,field)=> (Array.isArray(arr)?arr:[]).reduce((a,x)=>a+(Number(String(x[field]||0).replace(/,/g,''))||0),0);
+  const fiTop = Array.isArray(d.foreignInstitutionTotal)?d.foreignInstitutionTotal:[];
+  const fiTopFrgn = fiTop.reduce((a,x)=>a+(Number(String(x.frgn_ntby_qty||0).replace(/,/g,''))||0),0);
+  const fiTopOrgn = fiTop.reduce((a,x)=>a+(Number(String(x.orgn_ntby_qty||0).replace(/,/g,''))||0),0);
+
   const cells=[
-    {k:'코스피 외국인',v:pick(k,['frgn_ntby_qty','frgn_seln_vol'])},
-    {k:'코스피 기관',v:pick(k,['orgn_ntby_qty','orgn_seln_vol'])},
-    {k:'코스닥 외국인',v:pick(q,['frgn_ntby_qty','frgn_seln_vol'])},
-    {k:'코스닥 기관',v:pick(q,['orgn_ntby_qty','orgn_seln_vol'])},
+    {k:'시장시세 외국인',v:pick(mt,['frgn_ntby_qty']) || pick(k,['frgn_ntby_qty'])},
+    {k:'시장시세 기관',v:pick(mt,['orgn_ntby_qty']) || pick(k,['orgn_ntby_qty'])},
+    {k:'시장시세 개인',v:pick(mt,['prsn_ntby_qty'])},
+    {k:'코스닥 외국인',v:pick(q,['frgn_ntby_qty'])},
+    {k:'코스닥 기관',v:pick(q,['orgn_ntby_qty'])},
     {k:'프로그램 외국인',v:arrPickByName(d.program,'외국인')},
     {k:'프로그램 기관',v:arrPickByName(d.program,'기관')},
     {k:'선물 거래량',v:sumField(d.futures,'acml_vol')},
-    {k:'옵션 거래량',v:sumField(d.options,'acml_vol')}
+    {k:'옵션 거래량',v:sumField(d.options,'acml_vol')},
+    {k:'외국인 집계(상위)',v:fiTopFrgn},
+    {k:'기관 집계(상위)',v:fiTopOrgn}
   ];
   const hasData=cells.some(c=>Math.abs(c.v)>0);
   el.innerHTML = hasData
