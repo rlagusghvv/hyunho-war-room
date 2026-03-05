@@ -12,6 +12,7 @@ const liveRelays = new Map();
 const YTDLP_BIN = process.env.YTDLP_BIN || '/Users/kimhyunhomacmini/Library/Python/3.9/bin/yt-dlp';
 const liveChannels = {
   ytn: { id: 'ytn', name: 'YTN', url: 'https://www.youtube.com/@YTNnews24/live' },
+  yonhap: { id: 'yonhap', name: '연합뉴스TV', url: 'https://www.youtube.com/@yonhapnewstv23/live' },
   hankyung: { id: 'hankyung', name: '한국경제TV', url: 'https://www.youtube.com/@hankyungtv/live' },
   reuters: { id: 'reuters', name: 'Reuters', url: 'https://www.youtube.com/@Reuters/live' },
   ap: { id: 'ap', name: 'AP News', url: 'https://www.youtube.com/@AssociatedPress/live' },
@@ -23,6 +24,7 @@ const liveIdCache = {
   updatedAt: 0,
   items: {
     ytn: '92feK1esksc',
+    yonhap: 'LH77lflaM5w',
     hankyung: 'NJUjU9ALj4A',
     reuters: 'XYRdmw10RVw',
     ap: '45sRVqWwUIQ',
@@ -248,9 +250,24 @@ app.get('/api/community', async (req, res) => {
 
 app.get('/api/markets', async (_req, res) => {
   try {
-    const labels = ['S&P500','NASDAQ100','DOW','USDKRW','WTI','GOLD','NATGAS','SILVER','COPPER','BTC'];
-    const out = labels.map((k) => marketCache.get(k) || ({ symbol:k, close:null, chg:null, pct:null, stale:true }));
+    const pairs = [
+      ['S&P500','^spx'], ['NASDAQ100','^ndq'], ['DOW','^dji'], ['USDKRW','usdkrw'],
+      ['WTI','cl.f'], ['GOLD','gc.f'], ['NATGAS','ng.f'], ['SILVER','si.f'], ['COPPER','hg.f'], ['BTC','btcusd']
+    ];
 
+    const globals = await Promise.all(pairs.map(async ([label, code]) => {
+      const prev = marketCache.get(label);
+      const c = await fetchGooglePrice(code);
+      const close = Number.isFinite(c) ? c : (prev?.close ?? null);
+      const open = prev?.open ?? close;
+      const chg = Number.isFinite(open) && Number.isFinite(close) ? close - open : null;
+      const pct = Number.isFinite(open) && open !== 0 && Number.isFinite(close) ? (chg / open) * 100 : null;
+      const item = { symbol: label, rawSymbol: code, open, high: prev?.high ?? close, low: prev?.low ?? close, close, chg, pct, stale: !Number.isFinite(c) };
+      if (Number.isFinite(close)) marketCache.set(label, item);
+      return item;
+    }));
+
+    const map = new Map(globals.map((x) => [x.symbol, x]));
     try {
       const kr = await new Promise((resolve, reject) => {
         execFile('node', ['kis_bridge.mjs', 'kr-indexes'], { cwd: KIS_DIR, timeout: 5000 }, (err, stdout, stderr) => {
@@ -258,14 +275,13 @@ app.get('/api/markets', async (_req, res) => {
           resolve(JSON.parse((stdout || '').toString().trim()));
         });
       });
-      const map = new Map(out.map((x) => [x.symbol, x]));
       for (const it of kr) map.set(it.symbol, it);
-      if (!map.has('KOSPI')) map.set('KOSPI', marketCache.get('KOSPI') || { symbol:'KOSPI', rawSymbol:'0001', close:null, stale:true });
-      if (!map.has('KOSDAQ')) map.set('KOSDAQ', marketCache.get('KOSDAQ') || { symbol:'KOSDAQ', rawSymbol:'1001', close:null, stale:true });
-      return res.json({ ok: true, updatedAt: new Date().toISOString(), items: Array.from(map.values()) });
-    } catch {
-      return res.json({ ok: true, updatedAt: new Date().toISOString(), items: out });
-    }
+    } catch {}
+
+    if (!map.has('KOSPI')) map.set('KOSPI', marketCache.get('KOSPI') || { symbol:'KOSPI', rawSymbol:'0001', close:null, stale:true });
+    if (!map.has('KOSDAQ')) map.set('KOSDAQ', marketCache.get('KOSDAQ') || { symbol:'KOSDAQ', rawSymbol:'1001', close:null, stale:true });
+
+    return res.json({ ok: true, updatedAt: new Date().toISOString(), items: Array.from(map.values()) });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
