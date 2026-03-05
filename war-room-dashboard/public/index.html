@@ -70,11 +70,11 @@
     <div class="card full">
       <h3 style="margin:0 0 8px">주식 대시보드 퀵 액션</h3>
       <div class="mini-actions">
-        <button id="openStockInfoModal" class="primary">선택종목/보유현황 보기</button>
-        <button id="openStockModal">실시간 차트/호가/액션 보기</button>
-        <button id="openMacroModal">장 상황/지수흐름 보기</button>
+        <button id="openStockModal" class="primary">선택 종목 통합 보기</button>
+        <button id="openAccountModal">내 계좌 현황</button>
+        <button id="openMacroModal">장 상황/지수흐름</button>
       </div>
-      <div class="sub" style="margin-top:6px">요청 반영: 선택종목/보유현황/종목상세/장상황 모두 모달로 숨김.</div>
+      <div class="sub" style="margin-top:6px">선택 종목은 차트/호가/액션/커뮤니티를 한 모달에서, 보유현황은 계좌 모달로 분리.</div>
     </div>
 
     <div class="card full">
@@ -82,14 +82,13 @@
       <div id="macroMain" class="macro-grid"></div>
     </div>
 
-    <div id="stockInfoModal" class="modal">
+    <div id="accountModal" class="modal">
       <div class="modal-card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <h3 style="margin:0">선택 종목 / 내 보유현황</h3>
-          <button id="closeStockInfoModal">닫기</button>
+          <h3 style="margin:0">내 계좌 현황</h3>
+          <button id="closeAccountModal">닫기</button>
         </div>
-        <div class="card topbar" id="topbar"></div>
-        <div class="card" style="margin-top:10px">
+        <div class="card">
           <h3 style="margin:0 0 8px">내 보유 현황</h3>
           <div class="sub" id="pfMeta">-</div>
           <div id="portfolio"></div>
@@ -107,6 +106,7 @@
           <button class="tab on" data-stock-tab="overview">차트/호가/액션</button>
           <button class="tab" data-stock-tab="community">종토방/커뮤니티</button>
         </div>
+        <div class="card topbar" id="topbar"></div>
         <div class="panel on" id="stock-panel-overview">
           <div class="grid">
             <div class="card">
@@ -525,13 +525,15 @@ for (const b of document.querySelectorAll('.tab[data-stock-tab]')) b.onclick=()=
 };
 
 document.getElementById('searchBtn').onclick=search;
-document.getElementById('watchBtn').onclick=()=>{loadSnapshot();loadPortfolio();loadCommunity();document.getElementById('stockInfoModal').classList.add('on');};
-document.getElementById('openStockInfoModal').onclick=()=>{loadSnapshot();loadPortfolio();document.getElementById('stockInfoModal').classList.add('on');};
-document.getElementById('closeStockInfoModal').onclick=()=>{document.getElementById('stockInfoModal').classList.remove('on');};
-document.getElementById('stockInfoModal').onclick=(e)=>{if(e.target.id==='stockInfoModal') document.getElementById('stockInfoModal').classList.remove('on');};
-document.getElementById('openStockModal').onclick=()=>{document.getElementById('stockModal').classList.add('on');};
+document.getElementById('watchBtn').onclick=()=>{loadSnapshot();loadChart();loadCommunity();document.getElementById('stockModal').classList.add('on');};
+document.getElementById('openStockModal').onclick=()=>{loadSnapshot();loadChart();loadCommunity();document.getElementById('stockModal').classList.add('on');};
 document.getElementById('closeStockModal').onclick=()=>{document.getElementById('stockModal').classList.remove('on');};
 document.getElementById('stockModal').onclick=(e)=>{if(e.target.id==='stockModal') document.getElementById('stockModal').classList.remove('on');};
+
+document.getElementById('openAccountModal').onclick=()=>{loadPortfolio();document.getElementById('accountModal').classList.add('on');};
+document.getElementById('closeAccountModal').onclick=()=>{document.getElementById('accountModal').classList.remove('on');};
+document.getElementById('accountModal').onclick=(e)=>{if(e.target.id==='accountModal') document.getElementById('accountModal').classList.remove('on');};
+
 document.getElementById('openMacroModal').onclick=()=>{document.getElementById('macroModal').classList.add('on');};
 document.getElementById('closeMacroModal').onclick=()=>{document.getElementById('macroModal').classList.remove('on');};
 document.getElementById('macroModal').onclick=(e)=>{if(e.target.id==='macroModal') document.getElementById('macroModal').classList.remove('on');};
