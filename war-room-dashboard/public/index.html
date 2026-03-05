@@ -34,6 +34,8 @@
     .signal{font-weight:700;font-size:18px}
     .badge{font-size:11px;background:#1f2937;border-radius:999px;padding:2px 8px;margin-right:6px}
     .hold-row{display:grid;grid-template-columns:1.4fr .6fr .8fr .8fr;gap:6px;padding:6px 0;border-bottom:1px solid #1f2937;font-size:12px}
+    .flow-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}
+    .flow-cell{background:#0f172a;border:1px solid #1f2937;border-radius:8px;padding:8px}
     .idx-row{display:grid;grid-template-columns:110px 1fr 120px 90px;gap:8px;align-items:center;padding:6px 2px;border-bottom:1px solid #1f2937;font-size:13px}
     .spark{width:100%;height:24px}
     .macro-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -113,9 +115,10 @@
               <div class="sub" id="chartMeta">-</div>
             </div>
             <div class="card">
-              <h3 style="margin:0 0 8px">호가창 + 액션 신호</h3>
+              <h3 style="margin:0 0 8px">호가창 + 수급 + 액션 신호</h3>
               <div id="bookMeta" class="sub">-</div>
               <div id="book"></div>
+              <div id="investorPanel" class="flow-grid"></div>
               <hr style="border-color:#1f2937;opacity:.4"/>
               <div class="signal" id="signal">[대기]</div>
               <div class="sub" id="signalRange">예상 범위: -</div>
@@ -219,6 +222,19 @@ function drawBook(s){
       <div>${fmt(l.ask||0)}</div>
       <div class='bar bid'><i style='width:${Math.round((l.bidQty/maxQ)*100)}%'></i></div>
     </div>`).join('');
+
+  const iv=s.investor||{};
+  const pg=s.program||{};
+  const cells=[
+    {k:'개인',v:iv.personal||0},
+    {k:'외국인',v:iv.foreign||0},
+    {k:'기관',v:iv.inst||0},
+    {k:'프로그램',v:pg.netQty||0}
+  ];
+  const hasData = cells.some(c=>Math.abs(Number(c.v||0))>0);
+  document.getElementById('investorPanel').innerHTML = hasData
+    ? cells.map(c=>`<div class='flow-cell'><div class='sub'>${c.k}</div><div class='${Number(c.v)>=0?'up':'dn'}'><b>${fmt(c.v)}</b></div></div>`).join('')
+    : `<div class='flow-cell sub' style='grid-column:1/-1'>투자자/프로그램 수급 집계 지연</div>`;
 }
 
 function setSignal(){
