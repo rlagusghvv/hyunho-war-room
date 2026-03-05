@@ -311,6 +311,22 @@ app.get('/api/market-history', async (req, res) => {
   }
 });
 
+app.get('/api/market-flow', async (_req, res) => {
+  try {
+    execFile('node', ['kis_bridge.mjs', 'market-flow'], { cwd: KIS_DIR, timeout: 12000 }, (err, stdout, stderr) => {
+      if (err) return res.status(500).json({ ok:false, error:(stderr || err.message).toString() });
+      try {
+        const data = JSON.parse((stdout || '').toString().trim());
+        return res.json({ ok:true, data });
+      } catch (e) {
+        return res.status(500).json({ ok:false, error:e.message });
+      }
+    });
+  } catch (e) {
+    res.status(500).json({ ok:false, error:e.message });
+  }
+});
+
 app.get('/api/macro-history', async (_req, res) => {
   try {
     const series = { 'S&P500': [], 'NASDAQ100': [], 'USDKRW': [], 'GOLD': [], 'WTI': [], 'NATGAS': [], 'SILVER': [], 'COPPER': [] };

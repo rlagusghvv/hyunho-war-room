@@ -158,6 +158,59 @@ async function krIndexHistory(){
   return series;
 }
 
+async function marketFlow(){
+  const d = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const dt = `${d.getUTCFullYear()}${String(d.getUTCMonth()+1).padStart(2,'0')}${String(d.getUTCDate()).padStart(2,'0')}`;
+  const out = { updatedAt: new Date().toISOString() };
+
+  try {
+    const k = await kisRequest({
+      path:'/uapi/domestic-stock/v1/quotations/inquire-investor-daily-by-market',
+      tr_id:'FHPTJ04040000',
+      params:{ FID_COND_MRKT_DIV_CODE:'U', FID_INPUT_ISCD:'0001', FID_INPUT_DATE_1:dt, FID_INPUT_ISCD_1:'KSP' }
+    });
+    out.kospi = (k.output2||[])[0] || (k.output1||[])[0] || {};
+  } catch { out.kospi = {}; }
+
+  try {
+    const q = await kisRequest({
+      path:'/uapi/domestic-stock/v1/quotations/inquire-investor-daily-by-market',
+      tr_id:'FHPTJ04040000',
+      params:{ FID_COND_MRKT_DIV_CODE:'U', FID_INPUT_ISCD:'1001', FID_INPUT_DATE_1:dt, FID_INPUT_ISCD_1:'KSQ' }
+    });
+    out.kosdaq = (q.output2||[])[0] || (q.output1||[])[0] || {};
+  } catch { out.kosdaq = {}; }
+
+  try {
+    const p = await kisRequest({
+      path:'/uapi/domestic-stock/v1/quotations/investor-program-trade-today',
+      tr_id:'HHPPG046600C0',
+      params:{ MRKT_DIV_CLS_CODE:'1' }
+    });
+    out.program = p.output || p.output1 || p.output2 || {};
+  } catch { out.program = {}; }
+
+  try {
+    const f = await kisRequest({
+      path:'/uapi/domestic-futureoption/v1/quotations/display-board-futures',
+      tr_id:'FHPIF05030200',
+      params:{ FID_COND_MRKT_DIV_CODE:'F', FID_COND_SCR_DIV_CODE:'20503', FID_COND_MRKT_CLS_CODE:'MKI' }
+    });
+    out.futures = f.output || f.output1 || f.output2 || {};
+  } catch { out.futures = {}; }
+
+  try {
+    const o = await kisRequest({
+      path:'/uapi/domestic-futureoption/v1/quotations/display-board-callput',
+      tr_id:'FHPIF05030100',
+      params:{ FID_COND_MRKT_DIV_CODE:'O', FID_COND_SCR_DIV_CODE:'20503', FID_MRKT_CLS_CODE:'CO', FID_MTRT_CNT:'202407', FID_COND_MRKT_CLS_CODE:'', FID_MRKT_CLS_CODE1:'PO' }
+    });
+    out.options = o.output || o.output1 || o.output2 || {};
+  } catch { out.options = {}; }
+
+  return out;
+}
+
 async function portfolio(){
   const CANO = process.env.KIS_CANO;
   const ACNT_PRDT_CD = process.env.KIS_ACNT_PRDT_CD || '01';
@@ -187,4 +240,5 @@ else if (mode === 'chart') console.log(JSON.stringify(await chart(symbol)));
 else if (mode === 'portfolio') console.log(JSON.stringify(await portfolio()));
 else if (mode === 'kr-indexes') console.log(JSON.stringify(await krIndexes()));
 else if (mode === 'kr-history') console.log(JSON.stringify(await krIndexHistory()));
-else throw new Error('mode: snapshot|chart|portfolio|kr-indexes|kr-history');
+else if (mode === 'market-flow') console.log(JSON.stringify(await marketFlow()));
+else throw new Error('mode: snapshot|chart|portfolio|kr-indexes|kr-history|market-flow');

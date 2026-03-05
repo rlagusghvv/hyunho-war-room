@@ -138,6 +138,7 @@
         </div>
         <canvas id="idxChart" width="900" height="180"></canvas>
         <div class="sub" id="idxMeta">-</div>
+        <div id="marketFlowPanel" class="flow-grid" style="margin-top:10px"></div>
         <div style="margin-top:10px" class="chip" id="macroDecision">매크로 진단 로딩중...</div>
       </div>
     </div>
@@ -385,6 +386,36 @@ async function loadMarketHistory(){
   }
 }
 
+async function loadMarketFlow(){
+  const el=document.getElementById('marketFlowPanel');
+  if(!el) return;
+  const j=await fetch('/api/market-flow').then(r=>r.json()).catch(()=>({ok:false}));
+  if(!j.ok){ el.innerHTML=`<div class='flow-cell sub' style='grid-column:1/-1'>시장 수급 API 오류/지연</div>`; return; }
+  const d=j.data||{};
+  const k=d.kospi||{}, q=d.kosdaq||{};
+  const pick=(o,keys)=>{ for(const kk of keys){ if(o && o[kk]!==undefined && o[kk]!==null && String(o[kk]).trim()!=='') return Number(String(o[kk]).replace(/,/g,''))||0; } return 0; };
+  const arrPickByName=(arr,name,field='all_ntby_qty')=>{
+    const row=(Array.isArray(arr)?arr:[]).find(x=>String(x.invr_cls_name||'').replace(/\s/g,'')===name.replace(/\s/g,''));
+    if(!row) return 0;
+    return Number(String(row[field]??row.nabt_ntby_qty??0).replace(/,/g,''))||0;
+  };
+  const sumField=(arr,field)=> (Array.isArray(arr)?arr:[]).reduce((a,x)=>a+(Number(String(x[field]||0).replace(/,/g,''))||0),0);
+  const cells=[
+    {k:'코스피 외국인',v:pick(k,['frgn_ntby_qty','frgn_seln_vol'])},
+    {k:'코스피 기관',v:pick(k,['orgn_ntby_qty','orgn_seln_vol'])},
+    {k:'코스닥 외국인',v:pick(q,['frgn_ntby_qty','frgn_seln_vol'])},
+    {k:'코스닥 기관',v:pick(q,['orgn_ntby_qty','orgn_seln_vol'])},
+    {k:'프로그램 외국인',v:arrPickByName(d.program,'외국인')},
+    {k:'프로그램 기관',v:arrPickByName(d.program,'기관')},
+    {k:'선물 거래량',v:sumField(d.futures,'acml_vol')},
+    {k:'옵션 거래량',v:sumField(d.options,'acml_vol')}
+  ];
+  const hasData=cells.some(c=>Math.abs(c.v)>0);
+  el.innerHTML = hasData
+    ? cells.map(c=>`<div class='flow-cell'><div class='sub'>${c.k}</div><div class='${c.v>=0?'up':'dn'}'><b>${fmt(c.v)}</b></div></div>`).join('')
+    : `<div class='flow-cell sub' style='grid-column:1/-1'>시장/파생 수급 집계 지연</div>`;
+}
+
 function sparklineSvg(arr,color='#60a5fa'){
   if(!arr?.length) return '';
   const vals=arr.slice(-30);
@@ -494,7 +525,7 @@ document.getElementById('closeMacroModal').onclick=()=>{document.getElementById(
 document.getElementById('macroModal').onclick=(e)=>{if(e.target.id==='macroModal') document.getElementById('macroModal').classList.remove('on');};
 
 search();
-loadSnapshot(); loadChart(); loadPortfolio(); loadNews(); loadIntel(); loadLiveNews(); loadCommunity(); loadMarkets(); loadMarketHistory();
+loadSnapshot(); loadChart(); loadPortfolio(); loadNews(); loadIntel(); loadLiveNews(); loadCommunity(); loadMarkets(); loadMarketHistory(); loadMarketFlow();
 setInterval(loadSnapshot, 800);
 setInterval(loadChart, 2000);
 setInterval(loadPortfolio, 5000);
@@ -503,6 +534,7 @@ setInterval(loadIntel, 30000);
 setInterval(loadCommunity, 30000);
 setInterval(loadMarkets, 10000);
 setInterval(loadMarketHistory, 90000);
+setInterval(loadMarketFlow, 7000);
 </script>
 </body>
 </html>
