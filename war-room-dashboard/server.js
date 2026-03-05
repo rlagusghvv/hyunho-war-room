@@ -30,7 +30,8 @@ const liveIdCache = {
     ap: '45sRVqWwUIQ',
     sky: 'YDvsBbKfLPA',
     dw: 'LuKwFajn37U'
-  }
+  },
+  meta: {}
 };
 
 const gfMap = {
@@ -105,13 +106,20 @@ async function refreshLiveIds() {
     const entries = await Promise.all(Object.values(liveChannels).map(async (c) => {
       try {
         const id = await resolveYoutubeId(c.url);
-        return [c.id, id];
+        return [c.id, id, true];
       } catch {
-        return [c.id, liveIdCache.items[c.id] || null];
+        return [c.id, liveIdCache.items[c.id] || null, false];
       }
     }));
-    for (const [k, v] of entries) if (v) liveIdCache.items[k] = v;
-    liveIdCache.updatedAt = Date.now();
+    const now = Date.now();
+    for (const [k, v, ok] of entries) {
+      if (v) liveIdCache.items[k] = v;
+      const prev = liveIdCache.meta[k] || { failCount: 0 };
+      liveIdCache.meta[k] = ok
+        ? { ok: true, failCount: 0, lastSuccessAt: now }
+        : { ok: false, failCount: (prev.failCount || 0) + 1, lastSuccessAt: prev.lastSuccessAt || 0 };
+    }
+    liveIdCache.updatedAt = now;
   } finally {
     _liveRefreshRunning = false;
   }
@@ -370,13 +378,20 @@ app.get('/api/intel', async (_req, res) => {
 });
 
 app.get('/api/live/channels', (_req, res) => {
-  const items = Object.values(liveChannels).map((c) => ({
-    id: c.id,
-    name: c.name,
-    url: c.url,
-    videoId: liveIdCache.items[c.id] || null,
-    embed: liveIdCache.items[c.id] ? `https://www.youtube.com/embed/${liveIdCache.items[c.id]}` : null
-  }));
+  const now = Date.now();
+  const items = Object.values(liveChannels).map((c) => {
+    const meta = liveIdCache.meta[c.id] || {};
+    const fresh = meta.lastSuccessAt ? ((now - meta.lastSuccessAt) < 40 * 60 * 1000) : true;
+    return {
+      id: c.id,
+      name: c.name,
+      url: c.url,
+      videoId: liveIdCache.items[c.id] || null,
+      embed: liveIdCache.items[c.id] ? `https://www.youtube.com/embed/${liveIdCache.items[c.id]}` : null,
+      available: !!liveIdCache.items[c.id] && fresh,
+      failCount: meta.failCount || 0
+    };
+  });
   res.json({ ok: true, updatedAt: liveIdCache.updatedAt, items });
 });
 
