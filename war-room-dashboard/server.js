@@ -12,8 +12,23 @@ const liveRelays = new Map();
 const YTDLP_BIN = process.env.YTDLP_BIN || '/Users/kimhyunhomacmini/Library/Python/3.9/bin/yt-dlp';
 const liveChannels = {
   ytn: { id: 'ytn', name: 'YTN', url: 'https://www.youtube.com/@YTNnews24/live' },
-  yonhap: { id: 'yonhap', name: '연합뉴스TV', url: 'https://www.youtube.com/@yonhapnewstv23/live' },
-  reuters: { id: 'reuters', name: 'Reuters', url: 'https://www.youtube.com/@Reuters/live' }
+  hankyung: { id: 'hankyung', name: '한국경제TV', url: 'https://www.youtube.com/@hankyungtv/live' },
+  reuters: { id: 'reuters', name: 'Reuters', url: 'https://www.youtube.com/@Reuters/live' },
+  ap: { id: 'ap', name: 'AP News', url: 'https://www.youtube.com/@AssociatedPress/live' },
+  sky: { id: 'sky', name: 'Sky News', url: 'https://www.youtube.com/@SkyNews/live' },
+  dw: { id: 'dw', name: 'DW News', url: 'https://www.youtube.com/@dwnews/live' }
+};
+
+const liveIdCache = {
+  updatedAt: 0,
+  items: {
+    ytn: '92feK1esksc',
+    hankyung: 'NJUjU9ALj4A',
+    reuters: 'XYRdmw10RVw',
+    ap: '45sRVqWwUIQ',
+    sky: 'YDvsBbKfLPA',
+    dw: 'LuKwFajn37U'
+  }
 };
 
 const gfMap = {
@@ -29,11 +44,22 @@ const gfMap = {
   'btcusd': 'https://www.google.com/finance/quote/BTC-USD'
 };
 
+async function fetchTextWithTimeout(url, ms = 5000, headers = { 'user-agent': 'Mozilla/5.0' }) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try {
+    const r = await fetch(url, { headers, signal: ctrl.signal });
+    return await r.text();
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 async function fetchGooglePrice(symbol) {
   const u = gfMap[symbol];
   if (!u) return null;
   try {
-    const html = await fetch(u, { headers: { 'user-agent': 'Mozilla/5.0' } }).then((r) => r.text());
+    const html = await fetchTextWithTimeout(u, 5000);
     const m = html.match(/data-last-price="([0-9.\-]+)"/);
     if (!m) return null;
     const v = Number(m[1]);
@@ -58,18 +84,35 @@ function stopRelay(id) {
   liveRelays.delete(id);
 }
 
-async function startRelay(id, url) {
-  stopRelay(id);
-  const streamUrl = await new Promise((resolve, reject) => {
-    execFile(YTDLP_BIN, ['-g', '--no-warnings', url], { timeout: 20000 }, (err, stdout, stderr) => {
+async function resolveYoutubeId(channelUrl) {
+  return await new Promise((resolve, reject) => {
+    execFile(YTDLP_BIN, ['--print', 'id', channelUrl], { timeout: 12000 }, (err, stdout, stderr) => {
       if (err) return reject(new Error((stderr || err.message).toString()));
-      const line = (stdout || '').toString().trim().split('\n')[0];
-      if (!line) return reject(new Error('stream url not found'));
-      resolve(line);
+      const id = (stdout || '').toString().trim().split('\n').filter(Boolean).pop();
+      if (!id) return reject(new Error('id not found'));
+      resolve(id);
     });
   });
-  liveRelays.set(id, { startedAt: Date.now(), url, streamUrl, ready: true });
-  return { ok: true, id, hls: streamUrl };
+}
+
+let _liveRefreshRunning = false;
+async function refreshLiveIds() {
+  if (_liveRefreshRunning) return;
+  _liveRefreshRunning = true;
+  try {
+    const entries = await Promise.all(Object.values(liveChannels).map(async (c) => {
+      try {
+        const id = await resolveYoutubeId(c.url);
+        return [c.id, id];
+      } catch {
+        return [c.id, liveIdCache.items[c.id] || null];
+      }
+    }));
+    for (const [k, v] of entries) if (v) liveIdCache.items[k] = v;
+    liveIdCache.updatedAt = Date.now();
+  } finally {
+    _liveRefreshRunning = false;
+  }
 }
 
 app.get('/api/search', async (req, res) => {
@@ -205,71 +248,24 @@ app.get('/api/community', async (req, res) => {
 
 app.get('/api/markets', async (_req, res) => {
   try {
-    const symbols = ['^kospi', '^spx', '^ndq', '^dji', 'usdkrw', 'cl.f', 'gc.f', 'ng.f', 'si.f', 'hg.f', 'btcusd'];
-    const names = { '^kospi':'KOSPI', '^spx': 'S&P500', '^ndq': 'NASDAQ100', '^dji': 'DOW', 'usdkrw':'USDKRW', 'cl.f': 'WTI', 'gc.f': 'GOLD', 'ng.f':'NATGAS', 'si.f':'SILVER', 'hg.f':'COPPER', 'btcusd': 'BTC' };
-    const out = [];
-    for (const s of symbols) {
-      const u = `https://stooq.com/q/l/?s=${encodeURIComponent(s)}&f=sd2t2ohlcv&h&e=csv`;
-      const txt = await fetch(u, { headers: { 'user-agent': 'Mozilla/5.0' } }).then((r) => r.text());
-      const lines = txt.trim().split('\n');
-      const row = (lines[1] || '').split(',');
-      const [symbol, date, time, open, high, low, close] = row;
-      let o = Number(open), c = Number(close), h = Number(high), l = Number(low);
-      const key = names[s] || symbol;
-      const prev = marketCache.get(key);
-      let valid = Number.isFinite(c) && c > 0;
-      if (!valid && prev) {
-        ({ open: o, close: c, high: h, low: l } = prev);
-        valid = true;
-      }
-      if (!valid) {
-        // fallback 1: historical daily close
-        try {
-          const hu = `https://stooq.com/q/d/l/?s=${encodeURIComponent(s)}&i=d`;
-          const htxt = await fetch(hu, { headers: { 'user-agent': 'Mozilla/5.0' } }).then((r) => r.text());
-          const hlines = htxt.trim().split('\n').slice(1).filter(Boolean);
-          const last = (hlines[hlines.length - 1] || '').split(',');
-          const [, ho, hh, hl, hc] = last;
-          o = Number(ho); h = Number(hh); l = Number(hl); c = Number(hc);
-          valid = Number.isFinite(c) && c > 0;
-        } catch {}
-      }
-      if (!valid) {
-        // fallback 2: Google Finance scrape (free)
-        const gp = await fetchGooglePrice(s);
-        if (gp) {
-          c = gp;
-          if (!Number.isFinite(o)) o = gp;
-          if (!Number.isFinite(h)) h = gp;
-          if (!Number.isFinite(l)) l = gp;
-          valid = true;
-        }
-      }
-      const chg = Number.isFinite(o) && Number.isFinite(c) ? c - o : null;
-      const pct = Number.isFinite(o) && o !== 0 && Number.isFinite(c) ? (chg / o) * 100 : null;
-      const item = { symbol: key, rawSymbol: s, date, time, open: Number.isFinite(o)?o:null, high: Number.isFinite(h)?h:null, low: Number.isFinite(l)?l:null, close: Number.isFinite(c)?c:null, chg, pct, stale: !((Number.isFinite(Number(close)) && Number(close)>0)) };
-      out.push(item);
-      if (valid) marketCache.set(key, item);
-    }
+    const labels = ['S&P500','NASDAQ100','DOW','USDKRW','WTI','GOLD','NATGAS','SILVER','COPPER','BTC'];
+    const out = labels.map((k) => marketCache.get(k) || ({ symbol:k, close:null, chg:null, pct:null, stale:true }));
 
-    // Prefer KIS for KR indexes (KOSPI/KOSDAQ) when available
     try {
       const kr = await new Promise((resolve, reject) => {
-        execFile('node', ['kis_bridge.mjs', 'kr-indexes'], { cwd: KIS_DIR, timeout: 12000 }, (err, stdout, stderr) => {
+        execFile('node', ['kis_bridge.mjs', 'kr-indexes'], { cwd: KIS_DIR, timeout: 5000 }, (err, stdout, stderr) => {
           if (err) return reject(new Error(stderr || err.message));
           resolve(JSON.parse((stdout || '').toString().trim()));
         });
       });
       const map = new Map(out.map((x) => [x.symbol, x]));
       for (const it of kr) map.set(it.symbol, it);
-      if (!map.has('KOSDAQ')) map.set('KOSDAQ', { symbol:'KOSDAQ', rawSymbol:'1001', open:null, high:null, low:null, close:null, chg:null, pct:null, stale:true });
-      res.json({ ok: true, updatedAt: new Date().toISOString(), items: Array.from(map.values()) });
-      return;
-    } catch {}
-
-    // fallback to free-source only
-    if (!out.some((x) => x.symbol === 'KOSDAQ')) out.push({ symbol:'KOSDAQ', rawSymbol:'1001', open:null, high:null, low:null, close:null, chg:null, pct:null, stale:true });
-    res.json({ ok: true, updatedAt: new Date().toISOString(), items: out });
+      if (!map.has('KOSPI')) map.set('KOSPI', marketCache.get('KOSPI') || { symbol:'KOSPI', rawSymbol:'0001', close:null, stale:true });
+      if (!map.has('KOSDAQ')) map.set('KOSDAQ', marketCache.get('KOSDAQ') || { symbol:'KOSDAQ', rawSymbol:'1001', close:null, stale:true });
+      return res.json({ ok: true, updatedAt: new Date().toISOString(), items: Array.from(map.values()) });
+    } catch {
+      return res.json({ ok: true, updatedAt: new Date().toISOString(), items: out });
+    }
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
@@ -279,7 +275,7 @@ app.get('/api/market-history', async (req, res) => {
   try {
     const symbol = (req.query.symbol || '^spx').toString().toLowerCase();
     const u = `https://stooq.com/q/d/l/?s=${encodeURIComponent(symbol)}&i=d`;
-    const txt = await fetch(u, { headers: { 'user-agent': 'Mozilla/5.0' } }).then((r) => r.text());
+    const txt = await fetchTextWithTimeout(u, 5000);
     const lines = txt.trim().split('\n').slice(1).filter(Boolean);
     const rows = lines.slice(-120).map((ln) => {
       const [date, open, high, low, close, volume] = ln.split(',');
@@ -293,41 +289,28 @@ app.get('/api/market-history', async (req, res) => {
 
 app.get('/api/macro-history', async (_req, res) => {
   try {
-    const targets = [
-      { s: '^kospi', n: 'KOSPI' },
-      { s: '^spx', n: 'S&P500' },
-      { s: '^ndq', n: 'NASDAQ100' },
-      { s: 'usdkrw', n: 'USDKRW' },
-      { s: 'gc.f', n: 'GOLD' },
-      { s: 'cl.f', n: 'WTI' },
-      { s: 'ng.f', n: 'NATGAS' },
-      { s: 'si.f', n: 'SILVER' },
-      { s: 'hg.f', n: 'COPPER' }
-    ];
-    const series = {};
-    for (const t of targets) {
-      const u = `https://stooq.com/q/d/l/?s=${encodeURIComponent(t.s)}&i=d`;
-      const txt = await fetch(u, { headers: { 'user-agent': 'Mozilla/5.0' } }).then((r) => r.text());
-      const lines = txt.trim().split('\n').slice(1).filter(Boolean).slice(-90);
-      series[t.n] = lines.map((ln) => {
-        const [date, open, high, low, close, volume] = ln.split(',');
-        return { date, open: Number(open || 0), high: Number(high || 0), low: Number(low || 0), close: Number(close || 0), volume: Number(volume || 0) };
-      }).filter((x) => Number.isFinite(x.close) && x.close > 0);
-    }
+    const series = { 'S&P500': [], 'NASDAQ100': [], 'USDKRW': [], 'GOLD': [], 'WTI': [], 'NATGAS': [], 'SILVER': [], 'COPPER': [] };
 
-    // Prefer KIS history for KR indexes when available
+    // KR history from KIS first (fast + reliable)
     try {
       const krSeries = await new Promise((resolve, reject) => {
-        execFile('node', ['kis_bridge.mjs', 'kr-history'], { cwd: KIS_DIR, timeout: 15000 }, (err, stdout, stderr) => {
+        execFile('node', ['kis_bridge.mjs', 'kr-history'], { cwd: KIS_DIR, timeout: 8000 }, (err, stdout, stderr) => {
           if (err) return reject(new Error(stderr || err.message));
           resolve(JSON.parse((stdout || '').toString().trim()));
         });
       });
-      if (krSeries.KOSPI?.length) series.KOSPI = krSeries.KOSPI;
-      if (krSeries.KOSDAQ?.length) series.KOSDAQ = krSeries.KOSDAQ;
-      else if (!series.KOSDAQ) series.KOSDAQ = [];
+      series.KOSPI = krSeries.KOSPI || [];
+      series.KOSDAQ = krSeries.KOSDAQ || [];
     } catch {
-      if (!series.KOSDAQ) series.KOSDAQ = [];
+      series.KOSPI = [];
+      series.KOSDAQ = [];
+    }
+
+    // lightweight fallback series from current market cache (repeat point so chart never blanks)
+    const now = new Date().toISOString().slice(0,10).replace(/-/g,'');
+    for (const [label, key] of [['S&P500','S&P500'],['NASDAQ100','NASDAQ100'],['USDKRW','USDKRW'],['GOLD','GOLD'],['WTI','WTI'],['NATGAS','NATGAS'],['SILVER','SILVER'],['COPPER','COPPER']]) {
+      const v = marketCache.get(key)?.close;
+      if (Number.isFinite(v)) series[label] = [{ date: now, open: v, high: v, low: v, close: v, volume: 0 }];
     }
 
     res.json({ ok: true, updatedAt: new Date().toISOString(), series });
@@ -371,73 +354,19 @@ app.get('/api/intel', async (_req, res) => {
 });
 
 app.get('/api/live/channels', (_req, res) => {
-  res.json({ ok: true, items: Object.values(liveChannels) });
+  const items = Object.values(liveChannels).map((c) => ({
+    id: c.id,
+    name: c.name,
+    url: c.url,
+    videoId: liveIdCache.items[c.id] || null,
+    embed: liveIdCache.items[c.id] ? `https://www.youtube.com/embed/${liveIdCache.items[c.id]}` : null
+  }));
+  res.json({ ok: true, updatedAt: liveIdCache.updatedAt, items });
 });
 
-app.post('/api/live/start/:id', express.json(), async (req, res) => {
-  const id = (req.params.id || '').toLowerCase();
-  const ch = liveChannels[id];
-  if (!ch) return res.status(404).json({ ok: false, error: 'unknown channel' });
-  try {
-    const r = await startRelay(id, ch.url);
-    res.json({ ok: true, ...r, channel: ch });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
-  }
-});
-
-app.post('/api/live/stop/:id', express.json(), (req, res) => {
-  const id = (req.params.id || '').toLowerCase();
-  stopRelay(id);
-  res.json({ ok: true, id });
-});
-
-app.get('/api/live/status/:id', (req, res) => {
-  const id = (req.params.id || '').toLowerCase();
-  const cur = liveRelays.get(id);
-  res.json({
-    ok: true,
-    id,
-    running: !!cur,
-    ready: !!cur?.ready,
-    startedAt: cur?.startedAt || null,
-    lastErr: cur?.lastErr || null,
-    hls: cur?.streamUrl || null,
-    proxiedHls: `/api/live/playlist/${id}`
-  });
-});
-
-app.get('/api/live/playlist/:id', async (req, res) => {
-  try {
-    const id = (req.params.id || '').toLowerCase();
-    const cur = liveRelays.get(id);
-    if (!cur?.streamUrl) return res.status(404).send('#EXTM3U\n');
-    const txt = await fetch(cur.streamUrl, { headers: { 'user-agent': 'Mozilla/5.0' } }).then((r) => r.text());
-    const lines = txt.split('\n').map((ln) => {
-      if (!ln || ln.startsWith('#')) return ln;
-      const abs = ln.startsWith('http') ? ln : new URL(ln, cur.streamUrl).toString();
-      return `/api/live/segment?u=${encodeURIComponent(abs)}`;
-    }).join('\n');
-    res.setHeader('content-type', 'application/vnd.apple.mpegurl');
-    res.send(lines);
-  } catch (e) {
-    res.status(500).send('#EXTM3U\n');
-  }
-});
-
-app.get('/api/live/segment', async (req, res) => {
-  try {
-    const u = (req.query.u || '').toString();
-    if (!u) return res.status(400).end();
-    const r = await fetch(u, { headers: { 'user-agent': 'Mozilla/5.0', referer: 'https://www.youtube.com/' } });
-    if (!r.ok) return res.status(502).end();
-    const ct = r.headers.get('content-type') || 'video/mp2t';
-    res.setHeader('content-type', ct);
-    const ab = await r.arrayBuffer();
-    res.send(Buffer.from(ab));
-  } catch {
-    res.status(500).end();
-  }
+app.post('/api/live/refresh', express.json(), async (_req, res) => {
+  await refreshLiveIds();
+  res.json({ ok: true, updatedAt: liveIdCache.updatedAt, items: liveIdCache.items });
 });
 
 app.get('/api/naver-board', async (req, res) => {
@@ -445,7 +374,7 @@ app.get('/api/naver-board', async (req, res) => {
     const code = (req.query.code || '').toString().trim();
     if (!code) return res.json({ ok: true, items: [] });
     const u = `https://finance.naver.com/item/board.naver?code=${encodeURIComponent(code)}&page=1`;
-    const html = await fetch(u, { headers: { 'user-agent': 'Mozilla/5.0' } }).then((r) => r.text());
+    const html = await fetchTextWithTimeout(u, 5000);
     const re = /href="\/(item\/board_read\.naver\?[^"]+)"[^>]*title="([^"]+)"/g;
     const out = [];
     let m;
@@ -460,4 +389,6 @@ app.get('/api/naver-board', async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`war-room dashboard running: http://localhost:${PORT}`);
+  refreshLiveIds().catch(() => {});
+  setInterval(() => refreshLiveIds().catch(() => {}), 10 * 60 * 1000);
 });

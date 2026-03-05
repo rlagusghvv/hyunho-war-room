@@ -264,26 +264,22 @@ async function loadIntel(){
   el.innerHTML=j.items.slice(0,12).map(x=>`<div class='item'><span class='badge'>${x.source}</span><a href='${x.link}' target='_blank'>${x.title}</a></div>`).join('');
 }
 
-function loadLiveNews(){
-  const channels = [
-    { id:'ytn', name:'YTN', embed:'https://www.youtube.com/embed/92feK1esksc' },
-    { id:'hankyung', name:'한국경제TV', embed:'https://www.youtube.com/embed/NJUjU9ALj4A' },
-    { id:'reuters', name:'Reuters', embed:'https://www.youtube.com/embed/XYRdmw10RVw' },
-    { id:'ap', name:'AP News', embed:'https://www.youtube.com/embed/45sRVqWwUIQ' },
-    { id:'sky', name:'Sky News', embed:'https://www.youtube.com/embed/YDvsBbKfLPA' },
-    { id:'dw', name:'DW News', embed:'https://www.youtube.com/embed/LuKwFajn37U' }
-  ];
-  window.__liveChannels = channels;
-  window.__liveSelected = new Set(['ytn','reuters']);
-
+async function loadLiveNews(){
   const el=document.getElementById('panel-live');
+  const j=await fetch('/api/live/channels').then(r=>r.json()).catch(()=>({ok:false,items:[]}));
+  const channels = j.ok ? (j.items||[]) : [];
+  window.__liveChannels = channels;
+  window.__liveSelected = window.__liveSelected || new Set(['ytn','reuters']);
+
   el.innerHTML = `
-    <div class='item sub'>서버 중계 제거. 유튜브 공식 인앱 플레이어(iframe)만 사용합니다.</div>
+    <div class='item sub'>유튜브 주소 자동갱신 모드(10분 주기). 필요시 수동 새로고침 가능.</div>
     <div class='item'>
       <input id='ytUrlInput' style='min-width:320px' value='https://www.youtube.com/watch?v=LH77lflaM5w' />
       <button class='primary' onclick='openYoutubeEmbed()'>직접 URL 인앱 열기</button>
+      <button onclick='refreshLiveIds()'>채널 주소 새로고침</button>
       <button onclick='applyLiveSelection()'>선택 채널 반영</button>
     </div>
+    <div class='item sub' id='liveUpdatedAt'>채널 갱신시각: ${j.updatedAt?new Date(j.updatedAt).toLocaleTimeString('ko-KR'):'-'} </div>
     <div class='item' id='liveChecks'></div>
     <div class='item'><div class='sub' id='ytEmbedMeta'>직접 URL 인앱 플레이어</div><iframe id='ytEmbedFrame' class='video-player' src='https://www.youtube.com/embed/LH77lflaM5w?autoplay=1&mute=1&playsinline=1' allow='autoplay; encrypted-media; picture-in-picture' allowfullscreen></iframe></div>
     <div class='item'><div class='sub'>멀티 채널 인앱(최대 4개)</div><div class='live-grid' id='liveGrid'></div></div>
@@ -310,6 +306,7 @@ window.openYoutubeEmbed=()=>{
 window.applyLiveSelection=()=>{
   const checks=[...document.querySelectorAll('[data-live-check]')];
   const picked=checks.filter(x=>x.checked).map(x=>x.getAttribute('data-live-check')).slice(0,4);
+  window.__liveSelected = new Set(picked);
   const channels=(window.__liveChannels||[]).filter(c=>picked.includes(c.id));
   const grid=document.getElementById('liveGrid');
   if(!grid) return;
@@ -320,6 +317,11 @@ window.applyLiveSelection=()=>{
       <iframe class='video-player' src='${c.embed}?autoplay=1&mute=1&playsinline=1' allow='autoplay; encrypted-media; picture-in-picture' allowfullscreen></iframe>
     </div>
   `).join('');
+};
+
+window.refreshLiveIds=async()=>{
+  await fetch('/api/live/refresh', { method:'POST' }).catch(()=>null);
+  await loadLiveNews();
 };
 
 async function loadCommunity(){
